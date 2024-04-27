@@ -1,20 +1,32 @@
 # AIWebFormFill
 
-This is a small project aimed to facilitate filling web forms. There may be situations (like filling applications during your job search 😉) where one need repetitevely fill the same information again and again, like ordering food or goods. There is where this helper was born.
+This is a small project aimed at facilitating the filling of web forms. There may be situations, such as filling out applications during your job search 😉, where you need to repeatedly fill in the same information again and again, like ordering food or goods. It's there that this helper was born.
 
-No doubt there are a lot of well sophisticated tools and solutions out there that may satisfy a great range of needs.
+No doubt, there are many well-sophisticated tools and solutions out there that may satisfy a wide range of needs.
 
-This one is a bit different. It was created with the privacy in mind. That means that the data you're using stays locally and is neither shared nor stored outside your machine. What fields will be filled by this tool is completely up to you.
+This one is different. It was created with privacy in mind. That means that the data you use stays locally on your machine and is neither shared nor stored outside it. What fields will be filled by this tool is entirely up to you.
 
-But still a word of caution - avoid storing sensitive information like cards, passwords, etc., because any flaw in the browser security may put in risk your data.
+However, I must issue a word of caution: avoid storing sensitive information like credit cards, passwords, etc., as any flaw in browser security may put your data at risk.
+
+## Pre-requisits
+This extension works with a local AI. This means that you need AI installed. Also, it requires a local POST API endpoint to communicate with. You could use any tool at your convenience. Here I'll explain my preferable environment settings.
+
+### API server
+Probably the easier way to make all work is to use [LM Studio](https://lmstudio.ai/). Download and set it for your OS.
+This extension uses embedding endpoint so it doesn't require great resources.
+
+Once LM Studio is set, download a MiniLM gulf (ie All-MiniLM-L6-v2-Embedding-GGUF). You need to search for it from within LM Studio and download it from there. Once on your machine, it will appear in the embeddings model list, where you have to activate it. And you're done; you're ready to fill out some other form.
+![LM Studio embeding MiniLm](media/miniLm.png)
+
+**Note:** For the moment it is expected LM Studio to use the default http port - 1234.
 
 ## Usage
-Installing this extension will add a few lines as a context menu and you'll be able to use it from there. In those menus are also the setting where you have to define the values you'd like to use filling a form.
+Installing this extension will add a few lines to the context menu, and you'll be able to use it from there. Included in these menus are settings where you must define the values you wish to use by filling out a form.
 
 ## Installation
-Download and install the extension for the Chrome Web Store
-**Note:** Reload the page if you need it on the current page
-Right click on a form field and you see somewhere the main context menu
+Download and install the extension from the Chrome Web Store.
+**Note:** Reload the page if you need to use it immediately.
+Right-click on a form field and you will see the main context menu.
 ![Main context menu](media/mainContextMenu.png)
 
 ### SubMenus

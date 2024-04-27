@@ -11,7 +11,31 @@ But still a word of caution - avoid storing sensitive information like cards, pa
 ## Usage
 Installing this extension will add a few lines as a context menu and you'll be able to use it from there. In those menus are also the setting where you have to define the values you'd like to use filling a form.
 
+## Installation
+Download and install the extension for the Chrome Web Store
+**Note:** Reload the page if you need it on the current page
+Right click on a form field and you see somewhere the main context menu
+![Main context menu](media/mainContextMenu.png)
 
+### SubMenus
+![Extension submenues](media/submenus.gif)
 
-![Optional Alt Text](screen.gif)
+# Options
+![Extension options](media/options.gif)
+
+## Form data
+```
+{
+    "address1": "Some Ave",
+    "country": "The Country",
+    "email": "JohnDow@mail.com",
+    "firstName": "John",
+    "fullName": "John Dow",
+    "lastName": "Dow",
+    "tel": "123456789",
+    "town": "The City"
+}
+```
+
+![Extension in action](media/screen.gif)
 

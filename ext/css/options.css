@@ -3,6 +3,12 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-direction: column;
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+}
+
+.options-title{
+    text-align: center;
 }
 
 .container {
@@ -45,12 +51,6 @@ button {
     padding: 0 .5rem;
 }
 
-/* .on-left {
-    flex: 1;
-}
-.middle {
-    flex: 3;
-} */
 .on-right {
     flex: 4;
 }
@@ -58,11 +58,10 @@ button {
 textarea {
     width: 100%;
     resize: vertical;
+    font-family: 'Courier New', monospace;
+    line-height: 1.5;
+    font-size: 1rem;
 }
-
-/* input[type="text"] {
-    width: 100%;
-} */
 
 /* General */
 .message-ribbon {

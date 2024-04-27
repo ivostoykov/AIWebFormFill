@@ -37,14 +37,23 @@ Right-click on a form field and you will see the main context menu.
 
 ### SubMenus
 ![Extension submenues](media/submenus.png)
-* Show form field metadata
+
+* _Show form field metadata_
+
 This menu will show the `id`s and `name`s for the fields that are considered as suitable to be filled.
 ![submenu Show form field metadata](media/html.png)
+
+To fill a form properly you have to provide some data, haven't you? This is what the next section is for.
 
 # Options
 ![Extension options](media/options.png)
 
 ## Form data
+
+Below is an example data and the format it is expected to be. Note that left and right parts are in quotes. (I know you know but to be sure).
+
+You can add, change, or manipulate this data in any way that serves your needs best. If you want to remove it, replace it with `{}` and save.
+
 ```
 {
     "address1": "Some Ave",

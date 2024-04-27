@@ -19,6 +19,9 @@ Right click on a form field and you see somewhere the main context menu
 
 ### SubMenus
 ![Extension submenues](media/submenus.png)
+* Show form field metadata
+This menu will show the `id`s and `name`s for the fields that are considered as suitable to be filled.
+![submenu Show form field metadata](media/html.png)
 
 # Options
 ![Extension options](media/options.png)
@@ -37,5 +40,6 @@ Right click on a form field and you see somewhere the main context menu
 }
 ```
 
+# In Action
 ![Extension in action](media/screen.gif)
 

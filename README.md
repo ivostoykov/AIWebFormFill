@@ -18,10 +18,10 @@ Right click on a form field and you see somewhere the main context menu
 ![Main context menu](media/mainContextMenu.png)
 
 ### SubMenus
-![Extension submenues](media/submenus.gif)
+![Extension submenues](media/submenus.png)
 
 # Options
-![Extension options](media/options.gif)
+![Extension options](media/options.png)
 
 ## Form data
 ```

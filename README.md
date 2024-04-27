@@ -8,6 +8,8 @@ This one is different. It was created with privacy in mind. That means that the 
 
 However, I must issue a word of caution: avoid storing sensitive information like credit cards, passwords, etc., as any flaw in browser security may put your data at risk.
 
+---
+
 ## Pre-requisits
 This extension works with a local AI. This means that you need AI installed. Also, it requires a local POST API endpoint to communicate with. You could use any tool at your convenience. Here I'll explain my preferable environment settings.
 
@@ -20,12 +22,16 @@ Once LM Studio is set, download a MiniLM gulf (ie All-MiniLM-L6-v2-Embedding-GGU
 
 **Note:** For the moment it is expected LM Studio to use the default http port - 1234.
 
+---
+
+## Installation
+Download and install the extension from the Chrome Web Store. Alternatively clone this repo and install it in Developer mode, you should know how if you take this path.
+
+**Note:** Reload the page if you need to use it immediately on current tab.
+
 ## Usage
 Installing this extension will add a few lines to the context menu, and you'll be able to use it from there. Included in these menus are settings where you must define the values you wish to use by filling out a form.
 
-## Installation
-Download and install the extension from the Chrome Web Store.
-**Note:** Reload the page if you need to use it immediately.
 Right-click on a form field and you will see the main context menu.
 ![Main context menu](media/mainContextMenu.png)
 

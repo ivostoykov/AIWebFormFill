@@ -12,8 +12,7 @@ However, I must issue a word of caution: avoid storing sensitive information lik
 This extension works with a local AI. This means that you need AI installed. Also, it requires a local POST API endpoint to communicate with. You could use any tool at your convenience. Here I'll explain my preferable environment settings.
 
 ### API server
-Probably the easier way to make all work is to use <a href="https://lmstudio.ai/" target="_blank">LM Studio</a>
- [LM Studio](https://lmstudio.ai/ "Open in new tab"). Download and set it for your OS.
+Probably the easier way to make all work is to use [LM Studio](https://lmstudio.ai/) (Ctrl+click to open in a new tab). Download and set it for your OS.
 This extension uses embedding endpoint so it doesn't require great resources.
 
 Once LM Studio is set, download a MiniLM gulf (ie All-MiniLM-L6-v2-Embedding-GGUF). You need to search for it from within LM Studio and download it from there. Once on your machine, it will appear in the embeddings model list, where you have to activate it. And you're done; you're ready to fill out some other form.

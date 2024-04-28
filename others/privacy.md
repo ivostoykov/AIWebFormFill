@@ -1,4 +1,4 @@
-# Privacy Policy for AI Form Fill Helper
+# Privacy Policy for AI Form Fill Helper Chrome Extensions
 
 Effective Date: 26 Apr 2024
 

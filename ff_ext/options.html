@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/options.css" />
+    <title>AI Web Form Fill Helper Options</title>
+</head>
+<body>
+    <header>
+        <h1 class="options-title">AI Web Form Fill Helper Options</h1>
+    </header>
+    <hr/>
+    <main class="container">
+        <section class="main">
+            <form id="theForm">
+                <div class="row">
+                    <textarea id="jsonInput" rows="10" placeholder="Enter settings in JSON format..."></textarea>
+                </div>
+                <div class="form-buttons">
+                    <button type="button" class="save">Save</button>
+                    <button type="button" class="cancel" onclick="resetForm()">Cancel</button>
+                </div>
+            </form>
+        </section>
+
+        <div id="message-ribbon" class="message-ribbon invisible">Message goes here</div>
+    </main>
+    <script src="js/options.js"></script>
+    <script>
+        function resetForm() {
+            document.getElementById('jsonInput').value = '';
+        }
+    </script>
+</body>
+</html>

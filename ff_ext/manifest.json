@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "AI Form Fill Helper",
+  "version": "1.2.92",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "form-filler-element.js"
+      ],
+      "matches": [
+        "http://localhost/*"
+      ]
+    }
+  ],
+  "action": {},
+  "icons": {
+    "16": "img/icon16.png",
+    "48": "img/icon48.png",
+    "128": "img/icon128.png"
+  },
+  "browser_specific_settings": {
+  "gecko": {
+    "id": "ask.ivo@gmail.com",
+    "strict_min_version": "89.0"
+  }
+}
+
+}
+

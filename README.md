@@ -43,6 +43,8 @@ Right-click on a form field and you will see the main context menu.
 This menu will show the `id`s and `name`s for the fields that are considered as suitable to be filled.
 ![submenu Show form field metadata](media/html.png)
 
+It's helpful to know which fields are good for filling out. The extension will also show why a field might not get filled—usually, it's because there's a poor match between the field's metadata and the info you've provided. This can give you a clue about what extra details to include in the options.
+
 To fill a form properly you have to provide some data, haven't you? This is what the next section is for.
 
 # Options

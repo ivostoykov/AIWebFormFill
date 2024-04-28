@@ -4,19 +4,17 @@ Effective Date: 26 Apr 2024
 
 ## Introduction
 
-This privacy policy governs the use of the software application AI Form Fill Helper ("Extension") developed by Ivo Stoykov. The Extension is designed to facilitate the automatic filling of web forms, enhancing user productivity and convenience.
+This privacy policy governs the use of the software application AI Form Fill Helper ("Extension"). The Extension is designed to facilitate the automatic filling of web forms, enhancing user productivity and convenience using local AI API interface.
 
 ## Disclosure
 
-The Extension's use of information complies with applicable privacy laws and best practices, ensuring data is handled responsibly:
+**Limited Use:** The user, at their own discretion, provides information that the Extension encrypts and stores locally on the user's device. No personal information is transmitted outside of the user's device.
 
-**Limited Use:** The Extension only stores information locally on the user's device to improve the functionality of the form-filling features. No personal information is transmitted outside of the user's device.
+**Financial and Payment Information:** The Extension does not handle or require any financial and payment information.
 
-**Financial and Payment Information:** The Extension does not handle or require any financial and payment information as it is available free of cost.
+**Authentication Information:** The Extension does not require or collect any authentication information.
 
-**Authentication Information:** The Extension does not collect any authentication information from the user's device.
-
-**User Data:** The Extension may access form field data only when explicitly triggered by the user to fill out a form. This data is not shared with any third parties and is only used to execute the core functionality of filling forms.
+**User Data:** The Extension accesses web form field data only when explicitly triggered by the user, solely for the purpose of filling out forms. No data is collected or shared with third parties. The provided data is used exclusively to execute the core functionality of filling forms.
 
 ## Permissions and Security
 

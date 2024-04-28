@@ -1,25 +1,3 @@
-/* // Create a script element
-const script = document.createElement('script');
-script.src = chrome.runtime.getURL('form-filler-element.js');
-script.type = 'module';
-document.documentElement.appendChild(script);
-
-// Optionally, wait for the module to load
-script.onload = () => {
-  console.log('Custom element module loaded');
-  // You can safely add the custom element to the document after the module has loaded
-  document.body.appendChild(document.createElement('form-filler'));
-};
-
-// Handle any errors that occur while loading the module
-script.onerror = (error) => {
-  console.error('Error loading the module script:', error);
-}; */
-
-// Variable to hold the last clicked element
-let field = null;
-
-// Listen for right-clicks and save the target element
 document.addEventListener('contextmenu', function(event) {
     field = event.target;
 }, true);
@@ -50,6 +28,9 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       break;
     case "showFieldsMetadata":
       showFieldsMetadata(field);
+      break;
+    case "clearAllFields":
+      clearAllFields(field);
       break;
     default:
       break;
@@ -226,16 +207,17 @@ function showFormFieldHint(field) {
       if(h.parentNode){  h.parentNode.removeChild(h);  }
     })
   });
-
-/*   setTimeout(() => {
-      if (hint.parentNode) {
-          hint.parentNode.removeChild(hint);
-      }
-  }, 5000); */
 }
 
 function showFieldsMetadata(field){
   const inputs = getInputFormFields(field);
   inputs.forEach(el => showFormFieldHint(el));
   showMessage('Click any hint to remove them.');
+}
+
+function clearAllFields(field){
+  const inputs = getInputFormFields(field);
+  inputs.forEach(el => {
+    el.value = '';
+  });
 }

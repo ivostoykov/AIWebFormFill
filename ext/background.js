@@ -26,6 +26,12 @@ chrome.runtime.onInstalled.addListener(function() {
     });
 
     chrome.contextMenus.create({
+        id: "clearallfield",
+        title: "⌦ Clear the fields",
+        contexts: ["editable"]
+    });
+
+    chrome.contextMenus.create({
         id: "showfieldmetadata",
         title: "</> Show form fields metadata",
         contexts: ["editable"]
@@ -55,12 +61,13 @@ chrome.contextMenus.onClicked.addListener(function(info, tab) {
             chrome.tabs.sendMessage(tab.id, {action: "getFormFields"}, async function(response) {
                 if (response && response.formDetails) {
                     try {
-                        let obj = JSON.parse(response.formDetails);
+                        let obj = JSON.parse(response?.formDetails || '[]');
                         if(obj && obj.length > 0){
                             await processForm(obj, tab.id);
                         }
                     } catch (error) {
                         console.error(error);
+                        console.log(response.formDetails);
                     }
                 }
             });
@@ -81,6 +88,9 @@ chrome.contextMenus.onClicked.addListener(function(info, tab) {
             break;
         case "showfieldmetadata":
             chrome.tabs.sendMessage(tab.id, {action: "showFieldsMetadata"});
+            break;
+        case "clearallfield":
+            chrome.tabs.sendMessage(tab.id, {action: "clearAllFields"});
             break;
         case "openOptions":
             chrome.runtime.openOptionsPage(() => {
@@ -222,7 +232,6 @@ async function fetchAndBuildEmbeddingsAndBestMatch(value) {
         }
     }
 
-    console.log("Combined data:", responses);
     return getBestMatch(value, responses);
 }
 
@@ -241,7 +250,6 @@ function getBestMatch(value, embeddings){
 
     let closest = Object.keys(similarities).reduce((a, b) => similarities[a] > similarities[b] ? a : b);
 
-    console.log(`The closest element to ${value} is '${closest}' with a cosine similarity of ${similarities[closest]}`);
     return closest;
 }
 

@@ -32,6 +32,9 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     case "clearAllFields":
       clearAllFields(field);
       break;
+    case "replaceFieldValue":
+      replaceFieldValue(field);
+      break;
     default:
       break;
   }
@@ -220,4 +223,79 @@ function clearAllFields(field){
   inputs.forEach(el => {
     el.value = '';
   });
+}
+
+function positionReplaceElementNearField(replaceElement, field) {
+  const rect = field.getBoundingClientRect();
+  replaceElement.style.position = 'absolute';
+  replaceElement.style.left = `${rect.left + window.scrollX}px`;
+  replaceElement.style.top = `${rect.bottom + window.scrollY + 5}px`;
+}
+
+function getReplaceElement(field){
+  let replaceElement = document.querySelector('div.js-ai-form-fill-helper');
+  if(!replaceElement){
+    replaceElement = document.createElement('div');
+    replaceElement.className = 'js-ai-form-fill-helper';
+    replaceElement.style.cssText = "position: fixed; bottom: 20px; right: 20px; padding: 10px; background: white; border: 1px solid black; z-index: 1000; border: 1px solid gray; height: fit-content; width: fit-content;";
+    replaceElement.innerHTML = `
+        <input type="text" id="searchText" placeholder="Search text">
+        <input type="text" id="replaceText" placeholder="Replace text">
+        <div id="previewResult" style="padding: 15px; margin: 7px 0; background: #f0f0f0;"></div>
+        <button id="replaceButton">⚙️</button>
+        <button id="closeButton">✖️</button>
+    `;
+    document.body.appendChild(replaceElement);
+  }
+
+  positionReplaceElementNearField(replaceElement, field);
+  return replaceElement
+}
+
+function typeReplacement(field, text) {
+  field.value = '';
+  field.focus();
+  field.value = text;
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function replaceFieldValue(field){
+  const replaceElement = getReplaceElement(field);
+
+  const searchInput = replaceElement.querySelector('#searchText');
+  const replaceInput = replaceElement.querySelector('#replaceText');
+  const replaceButton = replaceElement.querySelector('#replaceButton');
+  const closeButton = replaceElement.querySelector('#closeButton');
+
+  searchInput.value = field.value;
+  const updatePreview = () => {
+    const searchVal = searchInput.value;
+    const replaceVal = replaceInput.value;
+    const elementValue = field.value;
+
+    if (searchVal) {
+      try {
+        const regex = new RegExp(searchVal, 'g');
+        previewResult.innerText = elementValue.replace(regex, replaceVal);
+        previewResult.style.color = 'black'; // Default text color
+      } catch (e) {
+          previewResult.innerText = `Error: ${e.message}`;
+          previewResult.style.color = 'red'; // Error text color
+      }
+    } else {
+        previewResult.innerText = '';
+    }
+  };
+
+  searchInput.addEventListener('input', updatePreview);
+  replaceInput.addEventListener('input', updatePreview);
+
+  closeButton.onclick = function() {
+      replaceElement.remove();
+  };
+
+  replaceButton.onclick = function() {
+    typeReplacement(field, previewResult.innerText);
+      // field.value = previewResult.innerText;
+  };
 }

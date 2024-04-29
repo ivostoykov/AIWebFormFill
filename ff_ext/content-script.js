@@ -1,3 +1,5 @@
+var field;
+
 document.addEventListener('contextmenu', function(event) {
     field = event.target;
 }, true);
@@ -9,7 +11,8 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       sendResponse({formDetails: JSON.stringify(oForm)});
       return true;
     case "getClickedElement":
-      let attr = {id: field.id, name: field.name, type: field.type}.filter(attr => field[attr]);
+      if(!field) {  return false;  }
+      let attr = {id: field?.id || '', name: field?.name || '', type: field?.type || ''};
       if(Object.keys(attr).length === 0){
         console.warn('Element does not have needed attributes!');
         return;
@@ -122,20 +125,7 @@ function showMessage(message, type = "info"){
   if(!popup){
     popup = document.createElement('div');
     popup.id = id;
-    popup.style.position = 'fixed';
-    popup.style.top = '10%';
-    popup.style.left = '50%';
-    popup.style.width = '75%';
-    popup.style.height = 'auto';
-    popup.style.transform = 'translateX(-50%)';
-    popup.style.padding = '10px';
-    popup.style.border = '1px solid gray';
-    popup.style.zIndex = '1000';
-    popup.style.textAlign = 'center';
-    popup.style.fontSize = '1.5rem';
-    popup.style.fontWeight = 'bold';
-    popup.style.color = 'black';
-    popup.style.transition = 'opacity 0.5s ease-out';
+    popup.style.cssText = 'position:fixed;top:10%;left:50%;width:75%;height:auto;transform:translateX(-50%);padding:10px;border:1px solid gray;zIndex:1000;text-align:center;font-size:1.5rem;font-weight:bold;color:black;transition:opacity 0.5s ease-out;';
 
     document.body.appendChild(popup);
   }
@@ -173,6 +163,7 @@ function createFormFieldHintStyle() {
           transform: translate(-50%, -100%);
           top: 0;
           left: 50%;
+          color:black;
       }
   `;
 
@@ -234,13 +225,13 @@ function getReplaceElement(field){
   if(!replaceElement){
     replaceElement = document.createElement('div');
     replaceElement.className = 'js-ai-form-fill-helper';
-    replaceElement.style.cssText = "position: fixed; bottom: 20px; right: 20px; padding: 10px; background: white; border: 1px solid black; z-index: 1000; border: 1px solid gray; height: fit-content; width: fit-content;";
+    replaceElement.style.cssText = "position: fixed; bottom: 20px; right: 20px; padding: 10px; background: white; border: 1px solid black; z-index: 1000; border: 1px solid gray; height: fit-content; width: fit-content; color:black;";
     replaceElement.innerHTML = `
-        <input type="text" id="searchText" placeholder="Search text">
-        <input type="text" id="replaceText" placeholder="Replace text">
+        <input type="text" id="searchText" placeholder="Search text" style="color:black">
+        <input type="text" id="replaceText" placeholder="Replace text" style="color:black">
         <div id="previewResult" style="padding: 15px; margin: 7px 0; background: #f0f0f0;"></div>
-        <button id="replaceButton">⚙️</button>
-        <button id="closeButton">✖️</button>
+        <button id="closeButton" style="padding: 0 2rem; font-size: 20px;">✖️</button>
+        <button id="replaceButton" style="padding: 0 2rem; font-size: 20px;">✓</button>
     `;
     document.body.appendChild(replaceElement);
   }
@@ -263,12 +254,15 @@ function replaceFieldValue(field){
   const replaceInput = replaceElement.querySelector('#replaceText');
   const replaceButton = replaceElement.querySelector('#replaceButton');
   const closeButton = replaceElement.querySelector('#closeButton');
+  const previewResult = replaceElement.querySelector('#previewResult');
 
   searchInput.value = field.value;
+  replaceInput.focus();
   const updatePreview = () => {
     const searchVal = searchInput.value;
     const replaceVal = replaceInput.value;
     const elementValue = field.value;
+
 
     if (searchVal) {
       try {

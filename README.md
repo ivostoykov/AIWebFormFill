@@ -8,7 +8,7 @@ This one is different. It was created with privacy in mind. That means that the 
 
 However, I must issue a word of caution: avoid storing sensitive information like credit cards, passwords, etc., as any flaw in browser security may put your data at risk.
 
-Get Firefox addon v 1.3.67 from [![Firefox extension](media/ff32.png) here](https://addons.mozilla.org/en-US/firefox/addon/ai-form-fill-helper/)
+Get Firefox addon v 1.3.67 from [here ![Firefox extension](media/ff32.png)](https://addons.mozilla.org/en-US/firefox/addon/ai-form-fill-helper/)
 
 ---
 

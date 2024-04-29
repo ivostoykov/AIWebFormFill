@@ -12,11 +12,16 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       return true;
     case "getClickedElement":
       if(!field) {  return false;  }
-      let attr = {id: field?.id || '', name: field?.name || '', type: field?.type || ''};
+      let attr = {};
+      if(field.id){  attr['id'] = field.id;  }
+      if(field.name){  attr['name'] = field.name;  }
+      if(field.type){  attr['type'] = field.type;  }
+
       if(Object.keys(attr).length === 0){
         console.warn('Element does not have needed attributes!');
         return;
       }
+
       sendResponse({elementDetails: JSON.stringify(attr)});
       return true;
     case "sendProposalValue":
@@ -262,7 +267,6 @@ function replaceFieldValue(field){
     const searchVal = searchInput.value;
     const replaceVal = replaceInput.value;
     const elementValue = field.value;
-
 
     if (searchVal) {
       try {

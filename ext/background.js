@@ -1,13 +1,18 @@
 var AIFillFormOptions = {};
 var LLMStudioOptions = {};
+/* const embeddings = {
+    "emailAddress": [...],  // ~ 400-dim embedding for emailAddress
+    "email": [...],         // ~ 400-dim embedding for email
+    "tel": [...]            // ~ 400-dim embedding for tel
+}; */
+var staticEmbeddings = {};
+var dynamicEmbeddings = {};
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-
     if(tab.url && !tab.url.startsWith('http')) {  return;  }
 
     if (changeInfo.status === 'complete' && tab.url) {
-        AIFillFormOptions = await getOptions();
-        LLMStudioOptions = await getLLMStudioOptions();
+        await init();
     }
 });
 
@@ -58,11 +63,6 @@ chrome.runtime.onInstalled.addListener(function() {
 
 chrome.contextMenus.onClicked.addListener(function(info, tab) {
     switch (info.menuItemId) {
-        case "fillform":
-            if(info.selectionText){
-                fetchAndBuildEmbeddingsAndBestMatch(info.selectionText);
-            }
-            break;
         case "fillthisform":
             chrome.tabs.sendMessage(tab.id, {action: "getFormFields"}, async function(response) {
                 if (response && response.formDetails) {
@@ -115,21 +115,35 @@ chrome.contextMenus.onClicked.addListener(function(info, tab) {
     }
 });
 
+async function init() {
+    AIFillFormOptions = await getOptions();
+    LLMStudioOptions = await getLLMStudioOptions();
+    const formFields = Object.keys(AIFillFormOptions);
+    for (const field of formFields) {
+        const vectors = await fetchData({ "input": field });
+        if (vectors && vectors.length > 0) {
+            staticEmbeddings[field] = vectors;
+        }
+    }
+}
+
 async function processForm(obj, tabId){
     var data = {};
     for (let i = 0, l = obj.length; i < l; i++) {
         const el = obj[i];
         const elId = el?.id || el?.name || '';
         if(!elId) {  continue;  }
-        const bestKey = await fetchAndBuildEmbeddingsAndBestMatch(elId);
-        data[elId] = AIFillFormOptions[bestKey];
+        dynamicEmbeddings[elId] = await fetchData({ "input": elId });
+        const bestKey = getBestMatch(elId);
+        data[elId] = AIFillFormOptions[bestKey] || 'unknown';
     }
     chrome.tabs.sendMessage(tabId, { action: "sentFormValues", value: data });
 }
 
 async function processElement(elId, tabId){
-    const key = await fetchAndBuildEmbeddingsAndBestMatch(elId);
-    chrome.tabs.sendMessage(tabId, { action: "sendProposalValue", value: AIFillFormOptions[key] || 'unknown' });
+    dynamicEmbeddings[elId] = await fetchData({ "input": elId });
+    const bestKey = getBestMatch(elId);
+    chrome.tabs.sendMessage(tabId, { action: "sendProposalValue", value: AIFillFormOptions[bestKey] || 'unknown' });
 }
 
 function getOptions() {
@@ -173,97 +187,43 @@ function getLLMStudioOptions() {
     });
 }
 
-async function fetchDataAction(request, sender) {
-    const controller = new AbortController();
-    let messages = request?.data?.messages || [];
-    let data = messages.slice(-1)[0]?.content || '';
-    data = await laiComposeUerImput(data, sender);
-    request.data.messages.splice(-1, 1, { "role": "user", "content": data});
-    messages = updateSystemMessageDate(messages);
+async function fetchData(body = {}){
+    if(!body || Object.keys(body).length < 1){
+        return [];
+    }
 
-    const url = `http://localhost:${request.port}/v1/embeddings`;
-    fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request.data),
-        signal: controller.signal,
-    })
-    .then(response => {
-        if(shouldAbort && controller){
-            controller.abort();
-            chrome.tabs.sendMessage(senderTabId, { action: "streamAbort" });
-            return;
+    const url = `http://localhost:${LLMStudioOptions.localPort || "1234"}/v1/embeddings`;
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+            console.log("Non-ok response received", response.status, await response.text());
+            console.log("body sent", body);
+            return [];
         }
-        handleStreamingResponse(response?.body?.getReader(), sender.tab.id);
-    })
-    .catch(error => {
-        if (error.name === 'AbortError') {
-            chrome.tabs.sendMessage(sender.tab.id, { action: "streamAbort"});
-        } else {
-            chrome.tabs.sendMessage(sender.tab.id, { action: "streamError", error: error.toString()});
-        }
-        delete controller;
-    });
+        const data = await response.json();
+        return data.data[0]?.embedding ?? [];
+    } catch (err) {
+        console.log("Error in fetch or processing:", err);
+        return [];
+    }
 }
 
-async function fetchAndBuildEmbeddingsAndBestMatch(value) {
-    if(Object.keys(AIFillFormOptions).includes(value)){
-        return value;
-    }
-
-    var requests = [{body: {"input": value}}];
-    Object.keys(AIFillFormOptions).forEach(key => {
-        requests.push({body: {"input": key}});
-    });
-
-    const responses = {};
-
-    for (const request of requests) {
-        const { url = "http://localhost:1234/v1/embeddings", body } = request;
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body)
-            });
-            if (!response.ok) {
-                console.log("Non-ok response received", response.status, await response.text());
-                responses[body.input] = { error: true, message: 'Network response was not ok: ' + response.statusText };
-                continue;  // Move to the next request after logging the error
-            }
-            const data = await response.json();
-            responses[body.input] = data.data[0]?.embedding ?? [];
-        } catch (err) {
-            console.log("Error in fetch or processing:", err);
-            responses[body.input] = { error: true, message: err.message };
-        }
-    }
-
-    if(Object.keys(responses).length < 1){
-        console.error('Response is missing embeddings!');
-        return '';
-    }
-
-    return getBestMatch(value, responses);
-}
-
-/* const embeddings = {
-    "emailAddress": [...],  // 400-dim embedding for emailAddress
-    "email": [...],         // 400-dim embedding for email
-    "tel": [...]            // 400-dim embedding for tel
-}; */
-function getBestMatch(value, embeddings){
+function getBestMatch(value){
     if(!value){
         console.error(`invalid value: [${value}]`);
         return '';
     }
 
     let similarities = {};
-    for (let key in embeddings) {
+    for (let key in staticEmbeddings) {
         if (key !== value) {
-            similarities[key] = cosineSimilarity(embeddings[value], embeddings[key]);
+            similarities[key] = cosineSimilarity(dynamicEmbeddings[value], staticEmbeddings[key]);
         }
     }
 
@@ -276,8 +236,12 @@ function getBestMatch(value, embeddings){
     return closest;
 }
 
-// Function to calculate cosine similarity between two vectors
 function cosineSimilarity(vecA, vecB) {
+    if (!Array.isArray(vecA) || !Array.isArray(vecB)) {
+        console.error("Invalid input vectors", vecA, vecB);
+        return 0;
+    }
+
     let dotProduct = 0;
     let normA = 0;
     let normB = 0;

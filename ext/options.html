@@ -4,30 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/options.css" />
-    <title>Form Auto Fill Helper Options</title>
+    <title>AI Web Form Fill Helper Options</title>
 </head>
 <body>
-    <h1 class="options-title">AI Web Form Fill Helper Options</h1>
+    <header>
+        <h1 class="options-title">AI Web Form Fill Helper Options</h1>
+    </header>
     <hr/>
-    <div class="container">
+    <main class="container">
         <section class="main">
             <form id="theForm">
-
                 <div class="row">
-                    <div class="on-right">
-                        <textarea id="jsonInput" rows="10" placeholder="Your message..."></textarea>
-                    </div>
+                    <textarea id="jsonInput" rows="10" placeholder="Enter settings in JSON format..."></textarea>
                 </div>
-
-              <div class="form-buttons">
-                <button type="button" class="save">Save</button>
-                <button type="button" class="cancel">Cancel</button>
-              </div>
+                <div class="form-buttons">
+                    <button type="button" class="save">Save</button>
+                    <button type="button" class="cancel">Reset</button>
+                </div>
             </form>
         </section>
 
         <div id="message-ribbon" class="message-ribbon invisible">Message goes here</div>
-    </div>
+    </main>
     <script src="js/options.js"></script>
 </body>
 </html>

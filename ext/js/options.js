@@ -23,6 +23,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    document.querySelector(".cancel").addEventListener("click", (e) => {
+        document.getElementById('jsonInput').value = JSON.stringify(formFields, null, 4);
+    });
+
     function showMessage(msg, type) {
         messageRibbon.textContent = msg;
         const styles = ["success", "error", "info", "warning"]

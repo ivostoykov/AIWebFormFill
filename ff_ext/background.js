@@ -1,4 +1,3 @@
-console.log('AI Form Fill Helper loaded background.js ');
 var AIFillFormOptions = {};
 var LLMStudioOptions = {};
 /* const embeddings = {
@@ -111,8 +110,10 @@ browser.contextMenus.onClicked.addListener(function(info, tab) {
             break;
         default:
             console.log("No action found for:", info.menuItemId);
+
     }
 });
+
 
 async function init() {
     AIFillFormOptions = await getOptions();
@@ -147,7 +148,8 @@ async function processElement(elId, tabId){
 
 function getOptions() {
     return new Promise((resolve, reject) => {
-      const defaults ={
+
+        const defaults ={
             "fullName": "",
             "firstName": "",
             "lastName": "",
@@ -165,10 +167,12 @@ function getOptions() {
             reject(error);
         });
     });
+
 }
 
 function getLLMStudioOptions() {
     return new Promise((resolve, reject) => {
+
         const defaults = {
             "localPort": "1234",
         };
@@ -180,6 +184,7 @@ function getLLMStudioOptions() {
             reject(error);
         });
     });
+
 }
 
 async function fetchData(body = {}){
@@ -219,9 +224,6 @@ function getBestMatch(value){
     for (let key in staticEmbeddings) {
         if (key !== value) {
             similarities[key] = cosineSimilarity(dynamicEmbeddings[value], staticEmbeddings[key]);
-if(similarities[key] < 1){
-    console.error(`key: ${key}`, staticEmbeddings[key], `value: ${value}`, dynamicEmbeddings[value]);
-}
         }
     }
 

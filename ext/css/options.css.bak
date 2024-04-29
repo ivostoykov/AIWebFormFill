@@ -1,6 +1,5 @@
 body {
-    /* height: 100vh; */
-    width: 100%;
+    height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -13,7 +12,7 @@ body {
 }
 
 .container {
-    width: 96%;
+    width: 50%;
     position: relative;
     border: 1px solid blue;
     background-color: #FFF;
@@ -66,10 +65,11 @@ textarea {
 
 /* General */
 .message-ribbon {
+    width: 100%;
     padding: 1em;
     background-color: beige;
-    position: relative;
-    bottom: -75px;
+    position: absolute;
+    bottom: -100%;
     left: 0;
     overflow: hidden;
     transition: bottom 0.5s ease, opacity 1s ease;

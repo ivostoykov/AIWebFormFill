@@ -1,8 +1,10 @@
 var field;
 
-document.addEventListener('contextmenu', function(event) {
+document.addEventListener("DOMContentLoaded", (event) => {
+  document.body.addEventListener('contextmenu', function(event) {
     field = event.target;
-}, true);
+  }, true);
+});
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   switch (request.action) {
@@ -76,7 +78,7 @@ function fillElementWithProposedValue(value = 'unknown'){
 }
 
 function getInputFormFields(el){
-  const theForm = el.closest('form');
+  const theForm = el ? el.closest('form') : document.getElementsByTagName('form')[0];
   const inputs = theForm.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"]');
   var formFields = [];
   inputs.forEach(function(field, index) {
@@ -94,10 +96,11 @@ function getInputFormFields(el){
 function getFormFields(el){
   const inputs = getInputFormFields(el);
   var formFields = [];
+  if(inputs && inputs.length < 1){
+    return formFields;
+  }
+
   inputs.forEach(function(field, index) {
-    // const rect = field.getBoundingClientRect();
-    // const isVisible = (rect.width > 0 || rect.height > 0) && document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) === field;
-    // if(!isVisible) {  return;  }
     let attr = {};
     if(field.id){  attr['id'] = field.id;  }
     if(field.name){  attr['name'] = field.name;  }
@@ -109,7 +112,23 @@ function getFormFields(el){
   return formFields;
 }
 
+function getPopup(){
+  const id = 'formFillHelperPopup';
+  var popup = document.getElementById(id);
+  if(!popup){
+    popup = document.createElement('div');
+    popup.id = id;
+    popup.style.cssText = 'position:fixed;top:10%;left:50%;width:75%;height:auto;transform:translateX(-50%);padding:10px;border:1px solid gray;zIndex:1000;text-align:center;font-size:1.5rem;font-weight:bold;color:black;transition:opacity 0.5s ease-out;';
+
+    document.body.appendChild(popup);
+  }
+
+  return popup;
+}
+
 function showMessage(message, type = "info"){
+  if(!message){  return;  }
+
   let color;
   switch (type) {
     case 'error':
@@ -125,15 +144,8 @@ function showMessage(message, type = "info"){
       color = 'lightgray'
       break;
   }
-  const id = 'formFillHelperPopup';
-  var popup = document.getElementById(id);
-  if(!popup){
-    popup = document.createElement('div');
-    popup.id = id;
-    popup.style.cssText = 'position:fixed;top:10%;left:50%;width:75%;height:auto;transform:translateX(-50%);padding:10px;border:1px solid gray;zIndex:1000;text-align:center;font-size:1.5rem;font-weight:bold;color:black;transition:opacity 0.5s ease-out;';
 
-    document.body.appendChild(popup);
-  }
+  var popup = getPopup();
 
   popup.textContent = message;
   popup.style.background = color;
@@ -176,7 +188,12 @@ function createFormFieldHintStyle() {
 }
 
 function showFormFieldHint(field) {
-  createFormFieldHintStyle();
+  if(!field){
+    console.error("Invalid field", field);
+    return;
+  }
+
+   createFormFieldHintStyle();
 
   const fieldId = field.id;
   if(!fieldId){  return;  }
@@ -207,18 +224,33 @@ function showFormFieldHint(field) {
 
 function showFieldsMetadata(field){
   const inputs = getInputFormFields(field);
+  if(inputs.length < 1){
+    console.error("Either field or form is invalid", field);
+    return;
+  }
+
   inputs.forEach(el => showFormFieldHint(el));
   showMessage('Click any hint to remove them.');
 }
 
 function clearAllFields(field){
   const inputs = getInputFormFields(field);
+  if(inputs.length < 1){
+    console.error("Either field or form is invalid", field);
+    return;
+  }
+
   inputs.forEach(el => {
     el.value = '';
   });
 }
 
 function positionReplaceElementNearField(replaceElement, field) {
+  if(!field){
+    console.error("Invalid field", field);
+    return;
+  }
+
   const rect = field.getBoundingClientRect();
   replaceElement.style.position = 'absolute';
   replaceElement.style.left = `${rect.left + window.scrollX}px`;
@@ -226,6 +258,11 @@ function positionReplaceElementNearField(replaceElement, field) {
 }
 
 function getReplaceElement(field){
+  if(!field){
+    console.error("Invalid field", field);
+    return;
+  }
+
   let replaceElement = document.querySelector('div.js-ai-form-fill-helper');
   if(!replaceElement){
     replaceElement = document.createElement('div');
@@ -246,6 +283,11 @@ function getReplaceElement(field){
 }
 
 function typeReplacement(field, text) {
+  if(!field){
+    console.error("Invalid field", field);
+    return;
+  }
+
   field.value = '';
   field.focus();
   field.value = text;
@@ -253,6 +295,11 @@ function typeReplacement(field, text) {
 }
 
 function replaceFieldValue(field){
+  if(!field){
+    console.error("Invalid field", field);
+    return;
+  }
+
   const replaceElement = getReplaceElement(field);
 
   const searchInput = replaceElement.querySelector('#searchText');

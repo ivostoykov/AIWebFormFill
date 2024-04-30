@@ -11,9 +11,9 @@ var dynamicEmbeddings = {};
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if(tab.url && !tab.url.startsWith('http')) {  return;  }
 
-    if (changeInfo.status === 'complete' && tab.url) {
+/*     if (changeInfo.status === 'complete' && tab.url) {
         await init();
-    }
+    } */
 });
 
 chrome.runtime.onInstalled.addListener(function() {
@@ -116,8 +116,16 @@ chrome.contextMenus.onClicked.addListener(function(info, tab) {
 });
 
 async function init() {
-    AIFillFormOptions = await getOptions();
-    LLMStudioOptions = await getLLMStudioOptions();
+    if(Object.keys(AIFillFormOptions).length === 0){
+        AIFillFormOptions = await getOptions();
+    }
+    if(Object.keys(LLMStudioOptions).length === 0){
+        LLMStudioOptions = await getLLMStudioOptions();
+    }
+    if(Object.keys(staticEmbeddings).length > 0){
+        return;
+    }
+
     const formFields = Object.keys(AIFillFormOptions);
     for (const field of formFields) {
         const vectors = await fetchData({ "input": field });
@@ -128,6 +136,10 @@ async function init() {
 }
 
 async function processForm(obj, tabId){
+    if(Object.keys(staticEmbeddings).length === 0){
+        await init();
+    }
+
     var data = {};
     for (let i = 0, l = obj.length; i < l; i++) {
         const el = obj[i];
@@ -141,6 +153,10 @@ async function processForm(obj, tabId){
 }
 
 async function processElement(elId, tabId){
+    if(Object.keys(staticEmbeddings).length === 0){
+        await init();
+    }
+
     dynamicEmbeddings[elId] = await fetchData({ "input": elId });
     const bestKey = getBestMatch(elId);
     chrome.tabs.sendMessage(tabId, { action: "sendProposalValue", value: AIFillFormOptions[bestKey] || 'unknown' });
@@ -157,15 +173,14 @@ function getOptions() {
         "address1": "",
         "town": "",
         "country": ""
-    };;
+      };
+
       chrome.storage.sync.get('AIFillForm', function (obj) {
         if (chrome.runtime.lastError) {
           return reject(chrome.runtime.lastError);
         }
 
-        const options = Object.assign({}, defaults, obj.AIFillForm);
-
-        resolve(options);
+        resolve(Object.assign({}, defaults, obj.AIFillForm));
       });
     });
 }
@@ -180,9 +195,7 @@ function getLLMStudioOptions() {
           return reject(chrome.runtime.lastError);
         }
 
-        const options = Object.assign({}, defaults, obj.laiOptions);
-
-        resolve(options);
+        resolve(Object.assign({}, defaults, obj.laiOptions));
       });
     });
 }
@@ -209,7 +222,7 @@ async function fetchData(body = {}){
         const data = await response.json();
         return data.data[0]?.embedding ?? [];
     } catch (err) {
-        console.log("Error in fetch or processing:", err);
+        console.log("Error in fetch or processing:", err, body);
         return [];
     }
 }

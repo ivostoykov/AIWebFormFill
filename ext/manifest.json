@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI Form Fill Helper",
-  "version": "1.3.70",
+  "version": "1.4.10",
   "permissions": [
     "activeTab",
     "contextMenus",
@@ -21,7 +21,8 @@
       ],
       "js": [
         "content.js"
-      ]
+      ],
+      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [

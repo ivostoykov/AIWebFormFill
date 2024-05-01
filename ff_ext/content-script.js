@@ -1,3 +1,4 @@
+console.log('script started');
 var field;
 
 document.addEventListener("DOMContentLoaded", (event) => {
@@ -63,7 +64,38 @@ function fillFormWithProposedValues(formValues){
       return;
     }
 
+    if(!formValues[id]){
+      console.warn(`Nothing to insert - ${formValues[id]}.`);
+      return;
+    }
+
+/*     const pasteEvent = new ClipboardEvent('paste', {
+      dataType: 'text/plain',
+      data: formValues[id],
+      bubbles: true,
+      cancelable: true
+    }); */
+
     toFill.focus();
+
+/*     const inputChars = formValues[id].split('');
+    const events = ['keydown', 'keyup'];
+    inputChars.forEach(keyCode => {
+      events.forEach(eventType => {
+          const event = new KeyboardEvent(eventType, {
+              key: keyCode,
+              keyCode: keyCode, // Deprecated but still used in some browsers for compatibility
+              which: keyCode, // Deprecated but still used in some browsers for compatibility
+              bubbles: true, // This event should bubble for most listeners
+              cancelable: true, // Should be able to be canceled
+              shiftKey: false, // Use these to simulate modifier keys if needed
+              ctrlKey: false,
+              altKey: false
+          });
+          element.dispatchEvent(event);
+      });
+    }); */
+  // toFill.dispatchEvent(pasteEvent);
     toFill.value = formValues[id] || '';
     toFill.blur();
   });
@@ -78,7 +110,7 @@ function fillElementWithProposedValue(value = 'unknown'){
 }
 
 function getInputFormFields(el){
-  const theForm = el.closest('form');
+  const theForm = el ? el.closest('form') : document.getElementsByTagName('form')[0];
   const inputs = theForm.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"]');
   var formFields = [];
   inputs.forEach(function(field, index) {

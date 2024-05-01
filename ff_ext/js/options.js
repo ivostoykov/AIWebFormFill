@@ -10,6 +10,8 @@ var formFields = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+    const manifest = browser.runtime.getManifest();
+    document.querySelector('span.js-version').textContent = `version: ${manifest.version || '???'}`;
     const jsonInput = document.getElementById("jsonInput");
     const messageRibbon = document.getElementById("message-ribbon");
 

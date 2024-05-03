@@ -10,10 +10,6 @@ var dynamicEmbeddings = {};
 
 browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if(tab.url && !tab.url.startsWith('http')) {  return;  }
-
-/*     if (changeInfo.status === 'complete' && tab.url) {
-        await init();
-    } */
 });
 
 browser.runtime.onInstalled.addListener(function() {
@@ -62,6 +58,7 @@ browser.runtime.onInstalled.addListener(function() {
 });
 
 browser.contextMenus.onClicked.addListener(function(info, tab) {
+    if(tab.url && !tab.url.startsWith('http')) {  return;  }
     switch (info.menuItemId) {
         case "fillthisform":
             browser.tabs.sendMessage(tab.id, {action: "getFormFields"}).then(async response => {
@@ -128,28 +125,71 @@ async function init() {
 
     const formFields = Object.keys(AIFillFormOptions);
     for (const field of formFields) {
-        const vectors = await fetchData({ "input": field });
+        const vectors = await fetchData({ "input": field.toLowerCase() });
         if (vectors && vectors.length > 0) {
             staticEmbeddings[field] = vectors;
         }
     }
 }
 
+
 async function processForm(obj, tabId){
     if(Object.keys(staticEmbeddings).length === 0){
         await init();
     }
 
-    var data = {};
+    const keys2exclude = ['class', 'type', 'outerHtml', 'value'];
     for (let i = 0, l = obj.length; i < l; i++) {
+// TODO: use processElement for each element in this loop
+        let bestKey;
         const el = obj[i];
-        const elId = el?.id || el?.name || '';
-        if(!elId) {  continue;  }
-        dynamicEmbeddings[elId] = await fetchData({ "input": elId });
-        const bestKey = getBestMatch(elId);
-        data[elId] = AIFillFormOptions[bestKey] || 'unknown';
+        const mainObjKey = Object.keys(el)[0];
+        if(!mainObjKey){  continue;  }
+        if(el[mainObjKey].label){
+            const label = el[mainObjKey].label.replace(/\W/g, '');
+            bestKey = await getBestKeyFor(label);
+            el['data'] = AIFillFormOptions[bestKey] || 'unknown';
+            continue;
+        }
+        const objectKeys = Object.keys(el[mainObjKey]);
+        const keysToIterate = objectKeys.filter(key => !keys2exclude.includes(key));
+        for (let x = 0, z = keysToIterate.length; x < z; x++) {
+            let key = keysToIterate[x];
+            let value = el[mainObjKey][key];
+            if(staticEmbeddings[value]){
+                bestKey = value;
+                break;
+            }
+        }
+        // direct match found
+        if(bestKey){
+            el['data'] = AIFillFormOptions[bestKey] || 'unknown';
+            continue;
+        }
+
+        // no direct match - calc the best match
+        const bestMatches = [];
+        for (let x = 0, z = keysToIterate.length; x < z; x++) {
+            let key = keysToIterate[x];
+            let value = el[mainObjKey][key];
+            dynamicEmbeddings[value] = await fetchData({ "input": value.toLowerCase() });
+            bestMatches.push(getBestMatch(value));
+        }
+        el['data'] = AIFillFormOptions[bestMatches[0]] || 'unknown';
     }
-    browser.tabs.sendMessage(tabId, { action: "sentFormValues", value: data });
+    browser.tabs.sendMessage(tabId, { action: "sentFormValues", value: obj });
+}
+
+async function getBestKeyFor(prop){
+    let bestKey = 'unknown';
+    if(staticEmbeddings[prop]){
+        bestKey = prop;
+    } else {
+        dynamicEmbeddings[prop] = await fetchData({ "input": prop.toLowerCase() });
+        bestKey = getBestMatch(prop);
+    }
+
+    return bestKey;
 }
 
 async function processElement(elId, tabId){
@@ -157,8 +197,13 @@ async function processElement(elId, tabId){
         await init();
     }
 
-    dynamicEmbeddings[elId] = await fetchData({ "input": elId });
-    const bestKey = getBestMatch(elId);
+    let bestKey = 'unknown';
+    if(staticEmbeddings[elId]){
+        bestKey = elId;
+    } else {
+        dynamicEmbeddings[elId] = await fetchData({ "input": elId.toLowerCase() });
+        bestKey = getBestMatch(elId);
+    }
     browser.tabs.sendMessage(tabId, { action: "sendProposalValue", value: AIFillFormOptions[bestKey] || 'unknown' });
 }
 

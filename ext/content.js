@@ -1,30 +1,48 @@
-var field;
+var _field;
 
-document.addEventListener("DOMContentLoaded", (event) => {
-  document.body.addEventListener('contextmenu', function(event) {
-    field = event.target;
+if (document.readyState !== 'loading') {
+  console.log('document is already ready, just execute code here');
+  setListner();
+} else {
+  document.addEventListener('DOMContentLoaded', function () {
+      console.log('document was not ready, place code here');
+      setListner();
+  });
+}
+
+function setListner() {
+  console.log(`${setListner.name} fired. iframes:`, document.querySelectorAll('iframe').length);
+  document.addEventListener('contextmenu', function(event) {
+    console.log('Right-clicked element in main document:', event.target);
+    _field = event.target;
   }, true);
-});
+}
 
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+
   switch (request.action) {
     case "getFormFields":
-      const oForm = getFormFields(field);
-      sendResponse({formDetails: JSON.stringify(oForm)});
+      if(!_field){  return;  }
+
+      const oForm = getFormFields(_field);
+      if (oForm.length < 1) {  return;  }
+
+      sendResponse({ formDetails: JSON.stringify(oForm) });
       break;
     case "getClickedElement":
-      if(!field) {  return false;  }
-      let attr = {};
-      if(field.id){  attr['id'] = field.id;  }
-      if(field.name){  attr['name'] = field.name;  }
-      if(field.type){  attr['type'] = field.type;  }
+      if (!_field) {  return false;  }
 
-      if(Object.keys(attr).length === 0){
-        console.warn('Element does not have needed attributes!');
+      let attr = {};
+      if (_field.id) { attr['id'] = _field.id; }
+      if (_field.name) { attr['name'] = _field.name; }
+      if (_field.type) { attr['type'] = _field.type; }
+
+      if (Object.keys(attr).length === 0) {
+        console.warn('Element does not have needed attributes!', _field, attr);
         return;
       }
 
-      sendResponse({elementDetails: JSON.stringify(attr)});
+      sendResponse({ elementDetails: JSON.stringify(attr) });
       break;
     case "sendProposalValue":
       fillElementWithProposedValue(request.value);
@@ -33,13 +51,19 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       fillFormWithProposedValues(request.value);
       break;
     case "showFieldsMetadata":
-      showFieldsMetadata(field);
+      if (!_field) {  return false;  }
+
+      showFieldsMetadata(_field);
       break;
     case "clearAllFields":
-      clearAllFields(field);
+      if (!_field) {  return false;  }
+
+      clearAllFields(_field);
       break;
     case "replaceFieldValue":
-      replaceFieldValue(field);
+      if (!_field) {  return false;  }
+
+      replaceFieldValue(_field);
       break;
     default:
       console.warn('Received unknown action:', request.action);
@@ -47,44 +71,83 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   }
 });
 
-function fillFormWithProposedValues(formValues){
-  const formElements = Object.keys(formValues);
+function findMatchingElement(elementAttributes) {
+  const attr2exclude = ['type', 'class', 'value', 'outerHtml', 'label', 'required', 'pattern'];
+  let firstHit = null;
 
-  if(formElements.length < 1){
+  if('id' in elementAttributes){
+    firstHit = document.getElementById(elementAttributes.id);
+    if(firstHit){  return firstHit;  }
+  }
+
+  let querySelector = [];
+  for (const [key, value] of Object.entries(elementAttributes)) {
+    if (attr2exclude.includes(key)) continue;
+
+    querySelector.push(`[${key}="${value}"]`);
+  }
+
+  firstHit = document.querySelector(querySelector.join(''));
+
+  return firstHit;
+}
+
+function fillFormWithProposedValues(formValues) {
+  if (formValues.length < 1) {
     showMessage('No suitable values proposed for this form.', "warn");
     console.warn('No suitable values proposed for this form.');
     return;
   }
 
-  formElements.forEach(id => {
-    let toFill = document.getElementById(id) || document.getElementsByName(id)[0];
-    if(!toFill){
-      console.warn(`No element found with the specified id or name - ${id}.`);
-      return;
+  for (let i = 0, l = formValues.length; i < l; i++) {
+    let elm = formValues[i];
+    const suggestedValue = elm?.data || '';
+    if(elm.data){
+      delete elm.data;
     }
 
-    toFill.focus();
-    toFill.value = formValues[id] || '';
-    toFill.blur();
-  });
-}
+    const mainKey = Object.keys(elm)[0];
+    if(!mainKey){
+      console.error('No mainKey found!', elm);
+      continue;
+    }
 
-function fillElementWithProposedValue(value = 'unknown'){
-  try {
-    field.value = value;
-  } catch (error) {
-    console.error(error);
+    let toFill = findMatchingElement(elm[mainKey])
+    if (!toFill) {
+      console.warn(`No element found with the specified id or name - ${elm}.`);
+      return;
+      }
+
+    toFill.focus();
+    toFill.value = suggestedValue;
+    let event = new Event('input', { bubbles: true });
+    toFill.dispatchEvent(event);
+    toFill.blur();
   }
 }
 
-function getInputFormFields(el){
-  const theForm = el ? el.closest('form') : document.getElementsByTagName('form')[0];
+function fillElementWithProposedValue(value = 'unknown') {
+  if (!_field) {
+    console.warn("The field is undefined", _field, value);
+    return;
+  }
+
+  _field.value = value;
+}
+
+function getInputFormFields(el) {
+  const theForm = el?.closest('form') || el?.closest('#form');
+  if (!theForm) {
+    console.error("No form found to fill", theForm);
+    return [];
+  }
+
   const inputs = theForm.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"]');
   var formFields = [];
-  inputs.forEach(function(field, index) {
+  inputs.forEach(function (field) {
     const rect = field.getBoundingClientRect();
     const isVisible = (rect.width > 0 || rect.height > 0) && document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) === field;
-    if(isVisible) {
+    if (isVisible) {
       formFields.push(field);
     }
   });
@@ -93,29 +156,57 @@ function getInputFormFields(el){
 
 }
 
-function getFormFields(el){
+function checkAndGetLabel(field){
+  if(!field) { return; }
+
+  let label = field.id ? document.querySelector(`label[for="${field.id}"]`) : null;
+  if(label) {
+    return label.textContent;
+  }
+
+  if(field.parentElement && field.parentElement.tagName === 'LABEL') {
+    return field?.parentElement?.textContent;
+  }
+
+  return field.closest(`label`)?.textContent;
+}
+
+function getFormFields(el) {
   const inputs = getInputFormFields(el);
   var formFields = [];
-  if(inputs && inputs.length < 1){
+  if (inputs && inputs.length < 1) {
     return formFields;
   }
 
-  inputs.forEach(function(field, index) {
-    let attr = {};
-    if(field.id){  attr['id'] = field.id;  }
-    if(field.name){  attr['name'] = field.name;  }
-    if(Object.keys(attr).length > 0){
-      formFields.push(attr);
+  const attr2ignore = ['style', 'placeholder', 'required'];
+  inputs.forEach(function (field) {
+    let fieldData = {};
+    const tag = field.tagName.toLowerCase();
+    fieldData[tag] = {};
+    for (let i = 0, l = field.attributes.length; i < l; i++) {
+      const attr = field.attributes[i];
+      if (attr2ignore.includes(attr.name)) { continue; }
+      fieldData[tag][attr.name] = attr.value;
+    }
+
+    const label = checkAndGetLabel(field);
+    if(label){
+      fieldData[tag]['label'] = label;
+    }
+
+    if (Object.keys(fieldData[tag]).length > 0) {
+      fieldData[tag]['outerHtml'] = field.outerHTML;
+      formFields.push(fieldData);
     }
   });
 
   return formFields;
 }
 
-function getPopup(){
+function getPopup() {
   const id = 'formFillHelperPopup';
   var popup = document.getElementById(id);
-  if(!popup){
+  if (!popup) {
     popup = document.createElement('div');
     popup.id = id;
     popup.style.cssText = 'position:fixed;top:10%;left:50%;width:75%;height:auto;transform:translateX(-50%);padding:10px;border:1px solid gray;zIndex:1000;text-align:center;font-size:1.5rem;font-weight:bold;color:black;transition:opacity 0.5s ease-out;';
@@ -126,8 +217,8 @@ function getPopup(){
   return popup;
 }
 
-function showMessage(message, type = "info"){
-  if(!message){  return;  }
+function showMessage(message, type = "info") {
+  if (!message) { return; }
 
   let color;
   switch (type) {
@@ -163,7 +254,7 @@ function createFormFieldHintStyle() {
   const id = 'formFillHelperFieldHistStyle';
 
   var hintStyle = document.getElementById(id);
-  if(hintStyle){ return; }
+  if (hintStyle) { return; }
 
   hintStyle = document.createElement('style');
   hintStyle.id = id;
@@ -188,19 +279,19 @@ function createFormFieldHintStyle() {
 }
 
 function showFormFieldHint(field) {
-  if(!field){
+  if (!field) {
     console.error("Invalid field", field);
     return;
   }
 
-   createFormFieldHintStyle();
+  createFormFieldHintStyle();
 
   const fieldId = field.id;
-  if(!fieldId){  return;  }
+  if (!fieldId) { return; }
 
   const fieldHintId = `${fieldId}Hint`;
   var hint = document.getElementById(fieldHintId);
-  if(!hint){
+  if (!hint) {
     hint = document.createElement('div');
     hint.id = fieldHintId;
     hint.className = 'custom-hint';
@@ -217,14 +308,14 @@ function showFormFieldHint(field) {
   hint.addEventListener('click', (e) => {
     const hints = document.querySelectorAll('div.custom-hint');
     hints.forEach(h => {
-      if(h.parentNode){  h.parentNode.removeChild(h);  }
+      if (h.parentNode) { h.parentNode.removeChild(h); }
     })
   });
 }
 
-function showFieldsMetadata(field){
+function showFieldsMetadata(field) {
   const inputs = getInputFormFields(field);
-  if(inputs.length < 1){
+  if (inputs.length < 1) {
     console.error("Either field or form is invalid", field);
     return;
   }
@@ -233,9 +324,9 @@ function showFieldsMetadata(field){
   showMessage('Click any hint to remove them.');
 }
 
-function clearAllFields(field){
+function clearAllFields(field) {
   const inputs = getInputFormFields(field);
-  if(inputs.length < 1){
+  if (inputs.length < 1) {
     console.error("Either field or form is invalid", field);
     return;
   }
@@ -246,7 +337,7 @@ function clearAllFields(field){
 }
 
 function positionReplaceElementNearField(replaceElement, field) {
-  if(!field){
+  if (!field) {
     console.error("Invalid field", field);
     return;
   }
@@ -257,14 +348,14 @@ function positionReplaceElementNearField(replaceElement, field) {
   replaceElement.style.top = `${rect.bottom + window.scrollY + 5}px`;
 }
 
-function getReplaceElement(field){
-  if(!field){
+function getReplaceElement(field) {
+  if (!field) {
     console.error("Invalid field", field);
     return;
   }
 
   let replaceElement = document.querySelector('div.js-ai-form-fill-helper');
-  if(!replaceElement){
+  if (!replaceElement) {
     replaceElement = document.createElement('div');
     replaceElement.className = 'js-ai-form-fill-helper';
     replaceElement.style.cssText = "position: fixed; bottom: 20px; right: 20px; padding: 10px; background: white; border: 1px solid black; z-index: 1000; border: 1px solid gray; height: fit-content; width: fit-content; color:black;";
@@ -283,7 +374,7 @@ function getReplaceElement(field){
 }
 
 function typeReplacement(field, text) {
-  if(!field){
+  if (!field) {
     console.error("Invalid field", field);
     return;
   }
@@ -294,8 +385,8 @@ function typeReplacement(field, text) {
   field.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function replaceFieldValue(field){
-  if(!field){
+function replaceFieldValue(field) {
+  if (!field) {
     console.error("Invalid field", field);
     return;
   }
@@ -319,25 +410,24 @@ function replaceFieldValue(field){
       try {
         const regex = new RegExp(searchVal, 'g');
         previewResult.innerText = elementValue.replace(regex, replaceVal);
-        previewResult.style.color = 'black'; // Default text color
+        previewResult.style.color = 'black';
       } catch (e) {
-          previewResult.innerText = `Error: ${e.message}`;
-          previewResult.style.color = 'red'; // Error text color
+        previewResult.innerText = `Error: ${e.message}`;
+        previewResult.style.color = 'red';
       }
     } else {
-        previewResult.innerText = '';
+      previewResult.innerText = '';
     }
   };
 
   searchInput.addEventListener('input', updatePreview);
   replaceInput.addEventListener('input', updatePreview);
 
-  closeButton.onclick = function() {
-      replaceElement.remove();
+  closeButton.onclick = function () {
+    replaceElement.remove();
   };
 
-  replaceButton.onclick = function() {
+  replaceButton.onclick = function () {
     typeReplacement(field, previewResult.innerText);
-      // field.value = previewResult.innerText;
   };
 }

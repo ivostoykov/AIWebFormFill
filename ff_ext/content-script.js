@@ -1,24 +1,41 @@
-console.log('script started');
-var field;
+var _field;
 
-document.addEventListener("DOMContentLoaded", (event) => {
+if (document.readyState !== 'loading') {
+  console.log('document is already ready, just execute code here');
+  setListner();
+} else {
+  document.addEventListener('DOMContentLoaded', function () {
+      console.log('document was not ready, place code here');
+      setListner();
+  });
+}
+
+function setListner() {
+  console.log(`${setListner.name} fired. iframes:`, document.querySelectorAll('iframe').length);
   document.addEventListener('contextmenu', function(event) {
-    field = event.target;
+    console.log('Right-clicked element in main document:', event.target);
+    _field = event.target;
   }, true);
-});
+}
 
 browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+
   switch (request.action) {
     case "getFormFields":
-      const oForm = getFormFields(field);
+      if(!_field){  return;  }
+
+      const oForm = getFormFields(_field);
+      if(oForm.length < 1){  return;  }
+
       sendResponse({formDetails: JSON.stringify(oForm)});
       return true;
     case "getClickedElement":
-      if(!field) {  return false;  }
+      if(!_field) {  return false;  }
+
       let attr = {};
-      if(field.id){  attr['id'] = field.id;  }
-      if(field.name){  attr['name'] = field.name;  }
-      if(field.type){  attr['type'] = field.type;  }
+      if(_field.id){  attr['id'] = _field.id;  }
+      if(_field.name){  attr['name'] = _field.name;  }
+      if(_field.type){  attr['type'] = _field.type;  }
 
       if(Object.keys(attr).length === 0){
         console.warn('Element does not have needed attributes!');
@@ -34,13 +51,19 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       fillFormWithProposedValues(request.value);
       break;
     case "showFieldsMetadata":
-      showFieldsMetadata(field);
+      if (!_field) {  return false;  }
+
+      showFieldsMetadata(_field);
       break;
     case "clearAllFields":
-      clearAllFields(field);
+      if (!_field) {  return false;  }
+
+      clearAllFields(_field);
       break;
     case "replaceFieldValue":
-      replaceFieldValue(field);
+      if (!_field) {  return false;  }
+
+      replaceFieldValue(_field);
       break;
     default:
       console.warn('Received unknown action:', request.action);
@@ -48,72 +71,80 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   }
 });
 
-function fillFormWithProposedValues(formValues){
-  const formElements = Object.keys(formValues);
+function findMatchingElement(elementAttributes) {
+  const attr2exclude = ['type', 'class', 'value', 'outerHtml', 'label', 'required', 'pattern'];
+  let firstHit = null;
 
-  if(formElements.length < 1){
+  if('id' in elementAttributes){
+    firstHit = document.getElementById(elementAttributes.id);
+    if(firstHit){  return firstHit;  }
+  }
+
+  let querySelector = [];
+  for (const [key, value] of Object.entries(elementAttributes)) {
+    if (attr2exclude.includes(key)) continue;
+
+    querySelector.push(`[${key}="${value}"]`);
+  }
+
+  firstHit = document.querySelector(querySelector.join(''));
+
+  return firstHit;
+}
+
+function fillFormWithProposedValues(formValues){
+  if(formValues.length < 1){
     showMessage('No suitable values proposed for this form.', "warn");
     console.warn('No suitable values proposed for this form.');
     return;
   }
 
-  formElements.forEach(id => {
-    let toFill = document.getElementById(id) || document.getElementsByName(id)[0];
-    if(!toFill){
-      console.warn(`No element found with the specified id or name - ${id}.`);
-      return;
+  for (let i = 0, l = formValues.length; i < l; i++) {
+    let elm = formValues[i];
+    const suggestedValue = elm?.data || '';
+    if(elm.data){
+      delete elm.data;
     }
 
-    if(!formValues[id]){
-      console.warn(`Nothing to insert - ${formValues[id]}.`);
-      return;
+    const mainKey = Object.keys(elm)[0];
+    if(!mainKey){
+      console.error('No mainKey found!', elm);
+      continue;
     }
 
-/*     const pasteEvent = new ClipboardEvent('paste', {
-      dataType: 'text/plain',
-      data: formValues[id],
-      bubbles: true,
-      cancelable: true
-    }); */
+    let toFill = findMatchingElement(elm[mainKey])
+    if (!toFill) {
+      console.warn(`No element found with the specified id or name - ${elm}.`);
+      return;
+      }
 
     toFill.focus();
-
-/*     const inputChars = formValues[id].split('');
-    const events = ['keydown', 'keyup'];
-    inputChars.forEach(keyCode => {
-      events.forEach(eventType => {
-          const event = new KeyboardEvent(eventType, {
-              key: keyCode,
-              keyCode: keyCode, // Deprecated but still used in some browsers for compatibility
-              which: keyCode, // Deprecated but still used in some browsers for compatibility
-              bubbles: true, // This event should bubble for most listeners
-              cancelable: true, // Should be able to be canceled
-              shiftKey: false, // Use these to simulate modifier keys if needed
-              ctrlKey: false,
-              altKey: false
-          });
-          element.dispatchEvent(event);
-      });
-    }); */
-  // toFill.dispatchEvent(pasteEvent);
-    toFill.value = formValues[id] || '';
+    toFill.value = suggestedValue;
+    let event = new Event('input', { bubbles: true });
+    toFill.dispatchEvent(event);
     toFill.blur();
-  });
-}
-
-function fillElementWithProposedValue(value = 'unknown'){
-  try {
-    field.value = value;
-  } catch (error) {
-    console.error(error);
   }
 }
 
+function fillElementWithProposedValue(value = 'unknown'){
+  if (!_field) {
+    console.warn("The field is undefined", _field, value);
+    return;
+  }
+
+  _field.value = value;
+}
+
 function getInputFormFields(el){
-  const theForm = el ? el.closest('form') : document.getElementsByTagName('form')[0];
+  const theForm = el?.closest('form') || el?.closest('#form');
+  if (!theForm) {
+    console.error("No form found to fill", theForm);
+    return [];
+  }
+
   const inputs = theForm.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"]');
   var formFields = [];
-  inputs.forEach(function(field, index) {
+  inputs.forEach(function(field) {
     const rect = field.getBoundingClientRect();
     const isVisible = (rect.width > 0 || rect.height > 0) && document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) === field;
     if(isVisible) {
@@ -125,6 +156,21 @@ function getInputFormFields(el){
 
 }
 
+function checkAndGetLabel(field){
+  if(!field) { return; }
+
+  let label = field.id ? document.querySelector(`label[for="${field.id}"]`) : null;
+  if(label) {
+    return label.textContent;
+  }
+
+  if(field.parentElement && field.parentElement.tagName === 'LABEL') {
+    return field?.parentElement?.textContent;
+  }
+
+  return field.closest(`label`)?.textContent;
+}
+
 function getFormFields(el){
   const inputs = getInputFormFields(el);
   var formFields = [];
@@ -132,12 +178,25 @@ function getFormFields(el){
     return formFields;
   }
 
-  inputs.forEach(function(field, index) {
-    let attr = {};
-    if(field.id){  attr['id'] = field.id;  }
-    if(field.name){  attr['name'] = field.name;  }
-    if(Object.keys(attr).length > 0){
-      formFields.push(attr);
+  const attr2ignore = ['style', 'placeholder', 'required'];
+  inputs.forEach(function (field) {
+    let fieldData = {};
+    const tag = field.tagName.toLowerCase();
+    fieldData[tag] = {};
+    for (let i = 0, l = field.attributes.length; i < l; i++) {
+      const attr = field.attributes[i];
+      if (attr2ignore.includes(attr.name)) { continue; }
+      fieldData[tag][attr.name] = attr.value;
+    }
+
+    const label = checkAndGetLabel(field);
+    if(label){
+      fieldData[tag]['label'] = label;
+    }
+
+    if (Object.keys(fieldData[tag]).length > 0) {
+      fieldData[tag]['outerHtml'] = field.outerHTML;
+      formFields.push(fieldData);
     }
   });
 
@@ -351,10 +410,10 @@ function replaceFieldValue(field){
       try {
         const regex = new RegExp(searchVal, 'g');
         previewResult.innerText = elementValue.replace(regex, replaceVal);
-        previewResult.style.color = 'black'; // Default text color
+        previewResult.style.color = 'black';
       } catch (e) {
           previewResult.innerText = `Error: ${e.message}`;
-          previewResult.style.color = 'red'; // Error text color
+          previewResult.style.color = 'red';
       }
     } else {
         previewResult.innerText = '';
@@ -370,6 +429,5 @@ function replaceFieldValue(field){
 
   replaceButton.onclick = function() {
     typeReplacement(field, previewResult.innerText);
-      // field.value = previewResult.innerText;
   };
 }

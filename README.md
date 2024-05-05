@@ -13,7 +13,7 @@ However, I must issue a word of caution: avoid storing sensitive information lik
 ||||
 |------|------|------|
 | <img src="media/ff32.png" title="Firefox extension" alt="Firefox extension" width="32" height="32" /> | Get Firefox addon v 1.3.67 | [here](https://addons.mozilla.org/en-US/firefox/addon/ai-form-fill-helper/) |
-| <img src="media/chrome.png" title="Chrome extension" alt="Chrome extension" width="32" height="32" /> | For Chrome browser | [here](https://chromewebstore.google.com/detail/ai-form-fill-helper/hfcoicpedjbfhfiaamajpnaabjdkhjcj) |
+| <img src="media/chrome.png" title="Chrome extension" alt="Chrome extension" width="32" height="32" /> | For Chrome browser | [here](https://chromewebstore.google.com/detail/ai-form-fill-helper/hfcoicpedjbfhfiaamajpnaabjdkhjcj?pli=1) |
 
 
 ### What this project is NOT

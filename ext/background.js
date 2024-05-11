@@ -8,7 +8,7 @@ var LLMStudioOptions = {};
 var staticEmbeddings = {};
 var dynamicEmbeddings = {};
 
-browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if(tab.url && !tab.url.startsWith('http')) {  return;  }
 });
 

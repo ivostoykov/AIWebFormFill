@@ -1,5 +1,10 @@
 # AI Web Form Fill Helper
 
+<p align="center">
+  <img src="media/AIWebFillFormHelper.jpg" alt="Extension image">
+</p>
+
+
 This is a small project aimed at facilitating the filling of web forms. There may be situations, such as filling out applications during your job search 😉, where you need to repeatedly fill in the same information again and again, like ordering food or goods. It's there that this helper was born.
 
 No doubt, there are many well-sophisticated tools and solutions out there that may satisfy a wide range of needs.

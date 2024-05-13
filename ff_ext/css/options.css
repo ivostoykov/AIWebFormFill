@@ -1,5 +1,4 @@
 body {
-    /* height: 100vh; */
     width: 100%;
     display: flex;
     justify-content: center;
@@ -33,6 +32,27 @@ body {
     padding-bottom: 50px;
 }
 
+.form-container{
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+}
+
+input.numeric-settings{
+    width: 100px;
+    height: 25px;
+    min-width: 50px;
+}
+
+.field-label{
+    align-content: center;
+}
+
+label.block{
+    display: block;
+    text-align: left;
+}
+
 .form-buttons {
     position: absolute;
     bottom: 10px;
@@ -50,6 +70,14 @@ button {
     gap: 10px;
     margin-bottom: 20px;
     padding: 0 .5rem;
+}
+
+.col {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 0 1rem;
+    flex-direction: column;
 }
 
 .on-right {

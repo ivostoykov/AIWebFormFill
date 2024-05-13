@@ -1,2 +1,2 @@
 Starting script
-Directory: /home/ivo/Projects/js/Chrome_Plugins/AIPromptRepo/ext
+Directory: /home/ivo/Projects/js/Chrome_Plugins/AIWebFormFill/ext

@@ -1,5 +1,9 @@
+const formFieldsStorageKey = "AIFillForm";
+const AIsettingsStarageKey = "settings";
+
 var AIFillFormOptions = {};
 var LLMStudioOptions = {};
+var initCompleted = false;
 /* const embeddings = {
     "emailAddress": [...],  // ~ 400-dim embedding for emailAddress
     "email": [...],         // ~ 400-dim embedding for email
@@ -12,50 +16,68 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if(tab.url && !tab.url.startsWith('http')) {  return;  }
 });
 
-browser.runtime.onInstalled.addListener(function() {
+function createContextMenu(){
 
     browser.contextMenus.create({
-        id: "fillthisform",
-        title: "📝 Fill the form",
-        contexts: ["editable"]
-    });
+            id: "fillthisform",
+            title: "📝 Fill the form",
+            contexts: ["editable"]
+        },
+        // See https://extensionworkshop.com/documentation/develop/manifest-v3-migration-guide/#event-pages-and-backward-compatibility
+        // for information on the purpose of this error capture.
+        () => void browser.runtime.lastError,
+    );
 
     browser.contextMenus.create({
-        id: "fillthisfield",
-        title: "▭ Fill this field",
-        contexts: ["editable"]
-    });
+            id: "fillthisfield",
+            title: "▭ Fill this field",
+            contexts: ["editable"]
+        },
+        () => void browser.runtime.lastError,
+    );
 
     browser.contextMenus.create({
-        id: "clearallfield",
-        title: "⌦ Clear the fields",
-        contexts: ["editable"]
-    });
+            id: "clearallfield",
+            title: "⌦ Clear the fields",
+            contexts: ["editable"]
+        },
+        () => void browser.runtime.lastError,
+    );
 
     browser.contextMenus.create({
-        id: "replacefieldvalue",
-        title: "(→) Replace field value",
-        contexts: ["editable"]
-    });
+            id: "replacefieldvalue",
+            title: "(→) Replace field value",
+            contexts: ["editable"]
+        },
+        () => void browser.runtime.lastError,
+    );
 
     browser.contextMenus.create({
-        id: "showfieldmetadata",
-        title: "</> Show form fields metadata",
-        contexts: ["editable"]
-    });
+            id: "showfieldmetadata",
+            title: "</> Show form fields metadata",
+            contexts: ["editable"]
+        },
+        () => void browser.runtime.lastError,
+    );
+
+    addDataAsMenu().then().catch(e => console.error(`Failed to bild dynamic menu items.`, e));
 
     browser.contextMenus.create({
-        id: "separator1",
-        type: "separator",
-        contexts: ["all"]
-    });
+            id: "separator1",
+            type: "separator",
+            contexts: ["all"]
+        },
+        () => void browser.runtime.lastError,
+    );
 
     browser.contextMenus.create({
-        id: "openOptions",
-        title: "⚙️ Options",
-        contexts: ["all"]
-    });
-});
+            id: "openOptions",
+            title: "⚙️ Options",
+            contexts: ["all"]
+        },
+        () => void browser.runtime.lastError,
+    );
+}
 
 browser.contextMenus.onClicked.addListener(function(info, tab) {
     if(tab.url && !tab.url.startsWith('http')) {  return;  }
@@ -76,7 +98,8 @@ browser.contextMenus.onClicked.addListener(function(info, tab) {
             }).catch(e=>  console.error("Error sending message:", e));
             break;
         case "fillthisfield":
-            browser.tabs.sendMessage(tab.id, {action: "getClickedElement"}, async function(response) {
+            getAndProcessClickedElement(tab, info.menuItemId, true);
+/*             browser.tabs.sendMessage(tab.id, {action: "getClickedElement"}, async function(response) {
                 if (response && response.elementDetails) {
                     try {
                         let obj = JSON.parse(response.elementDetails);
@@ -87,7 +110,7 @@ browser.contextMenus.onClicked.addListener(function(info, tab) {
                         console.error(error);
                     }
                 }
-            });
+            }); */
             break;
         case "showfieldmetadata":
             browser.tabs.sendMessage(tab.id, {action: "showFieldsMetadata"});
@@ -106,11 +129,14 @@ browser.contextMenus.onClicked.addListener(function(info, tab) {
             });
             break;
         default:
-            console.log("No action found for:", info.menuItemId);
+            if(Object.keys(AIFillFormOptions).some(k => k.replace(/\W/g, '').toLowerCase() === info.menuItemId)){
+                getAndProcessClickedElement(tab, info.menuItemId, false);
+            } else {
+                console.log("No action found for:", info.menuItemId);
+            }
 
     }
 });
-
 
 async function init() {
     if(Object.keys(AIFillFormOptions).length === 0){
@@ -120,6 +146,7 @@ async function init() {
         LLMStudioOptions = await getLLMStudioOptions();
     }
     if(Object.keys(staticEmbeddings).length > 0){
+        initCompleted = true;
         return;
     }
 
@@ -130,8 +157,9 @@ async function init() {
             staticEmbeddings[field] = vectors;
         }
     }
-}
 
+    initCompleted = true;
+}
 
 async function processForm(obj, tabId){
     if(Object.keys(staticEmbeddings).length === 0){
@@ -140,56 +168,87 @@ async function processForm(obj, tabId){
 
     const keys2exclude = ['class', 'type', 'outerHtml', 'value'];
     for (let i = 0, l = obj.length; i < l; i++) {
-// TODO: use processElement for each element in this loop
-        let bestKey;
-        const el = obj[i];
-        const mainObjKey = Object.keys(el)[0];
-        if(!mainObjKey){  continue;  }
-        if(el[mainObjKey].label){
-            const label = el[mainObjKey].label.replace(/\W/g, '');
-            bestKey = await getBestKeyFor(label);
-            el['data'] = AIFillFormOptions[bestKey] || 'unknown';
-            continue;
+        const data = await getSimilarityForElemnt(obj[i]);
+        if(data){
+            obj[i]['data'] = JSON.stringify(data);
         }
-        const objectKeys = Object.keys(el[mainObjKey]);
-        const keysToIterate = objectKeys.filter(key => !keys2exclude.includes(key));
-        for (let x = 0, z = keysToIterate.length; x < z; x++) {
-            let key = keysToIterate[x];
-            let value = el[mainObjKey][key];
-            if(staticEmbeddings[value]){
-                bestKey = value;
-                break;
-            }
-        }
-        // direct match found
-        if(bestKey){
-            el['data'] = AIFillFormOptions[bestKey] || 'unknown';
-            continue;
-        }
-
-        // no direct match - calc the best match
-        const bestMatches = [];
-        for (let x = 0, z = keysToIterate.length; x < z; x++) {
-            let key = keysToIterate[x];
-            let value = el[mainObjKey][key];
-            dynamicEmbeddings[value] = await fetchData({ "input": value.toLowerCase() });
-            bestMatches.push(getBestMatch(value));
-        }
-        el['data'] = AIFillFormOptions[bestMatches[0]] || 'unknown';
     }
     browser.tabs.sendMessage(tabId, { action: "sentFormValues", value: obj });
+}
+
+async function getSimilarityForElemnt(el){
+    const mainObjKey = Object.keys(el)[0];
+    if(!mainObjKey){  return;  }
+
+    if(el[mainObjKey].label){
+        const label = el[mainObjKey].label.replace(/\W/g, '');
+        bestKey = await getBestKeyFor(label);
+        return bestKey;
+    }
+
+    const objectKeys = Object.keys(el[mainObjKey]);
+    const keysToIterate = objectKeys.filter(key => !keys2exclude.includes(key));
+    for (let x = 0, z = keysToIterate.length; x < z; x++) {
+        let key = keysToIterate[x];
+        let value = el[mainObjKey][key];
+        if(staticEmbeddings[value]){ // direct match found
+            return {"closest": value, "similarity": 1, "threshold": AIHelperSettings.threshold};
+        }
+    }
+
+    const bestMatches = []; // no direct match - calc the best match by attributes
+    for (let x = 0, z = keysToIterate.length; x < z; x++) {
+        let key = keysToIterate[x];
+        let value = el[mainObjKey][key];
+        dynamicEmbeddings[value] = await fetchData({ "input": value.toLowerCase() });
+        bestMatches.push(getBestMatch(value));
+    }
+    getBestMatch.sort((a, b) => b.similarity - a.similarity);
+    return {"closest": getBestMatch[0], "similarity": 1, "threshold": AIHelperSettings.threshold};
 }
 
 async function getBestKeyFor(prop){
     let bestKey = 'unknown';
     if(staticEmbeddings[prop]){
-        bestKey = prop;
+        bestKey = {"closest": AIFillFormOptions[prop], "similarity": 1, "threshold": AIHelperSettings.threshold};
     } else {
         dynamicEmbeddings[prop] = await fetchData({ "input": prop.toLowerCase() });
-        bestKey = getBestMatch(prop);
+        const key = getBestMatch(prop);
+        bestKey = {"closest": AIFillFormOptions[key.closest], "similarity": key.similarity, "threshold": AIHelperSettings.threshold};
     }
 
     return bestKey;
+}
+
+function getAndProcessClickedElement(tab, menuId, shouldProcessElement = false){
+    if(!tab){
+        console.error(`Invalid tab id (${tab?.id || '???'})`);
+        return;
+    }
+
+    browser.tabs.sendMessage(tab.id, {action: "getClickedElement"}, async function(response) {
+        if (response && response.elementDetails) {
+            try {
+                let obj = JSON.parse(response.elementDetails);
+                if(Array.isArray(obj) && obj.length > 0){
+                    if (shouldProcessElement) {
+                        await processForm(obj, tab.id);
+                    } else {
+                        var el;
+                        for (const [key, value] of Object.entries(AIFillFormOptions)) {
+                            if(menuId === key.replace(/\W/g, '').toLowerCase()){
+                                obj[0]['data'] = JSON.stringify({"closest": value, "similarity": 1, "threshold": AIHelperSettings.threshold});
+                                break;
+                            }
+                        }
+                        browser.tabs.sendMessage(tab.id, { action: "sendProposalValue", value: obj });
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    });
 }
 
 async function processElement(elId, tabId){
@@ -202,7 +261,8 @@ async function processElement(elId, tabId){
         bestKey = elId;
     } else {
         dynamicEmbeddings[elId] = await fetchData({ "input": elId.toLowerCase() });
-        bestKey = getBestMatch(elId);
+        key = getBestMatch(elId);
+        bestKey = {"closest": AIFillFormOptions[key.closest], "similarity": key.similarity, "threshold": AIHelperSettings.threshold};
     }
     browser.tabs.sendMessage(tabId, { action: "sendProposalValue", value: AIFillFormOptions[bestKey] || 'unknown' });
 }
@@ -220,8 +280,8 @@ function getOptions() {
             "country": ""
         };
 
-        browser.storage.sync.get('AIFillForm').then((obj) => {
-            const options = Object.assign({}, defaults, obj.AIFillForm);
+        browser.storage.sync.get([formFieldsStorageKey]).then((obj) => {
+            const options = Object.assign({}, defaults, obj[formFieldsStorageKey]);
             resolve(options);
         }).catch((error) => {
             reject(error);
@@ -235,7 +295,7 @@ function getLLMStudioOptions() {
         const defaults = {
             "localPort": "1234",
         };
-        browser.storage.sync.get('laiOptions').then((obj) => {
+        browser.storage.sync.get([AIsettingsStarageKey]).then((obj) => {
             const options = Object.assign({}, defaults, obj.laiOptions);
             resolve(options);
         }).catch((error) => {
@@ -272,6 +332,7 @@ async function fetchData(body = {}){
     }
 }
 
+
 function getBestMatch(value){
     if(!value){
         console.error(`invalid value: [${value}]`);
@@ -291,7 +352,7 @@ function getBestMatch(value){
 
     let closest = Object.keys(similarities).reduce((a, b) => similarities[a] > similarities[b] ? a : b);
 
-    return closest;
+    return {"closest": closest, "similarity": similarities[closest], "threshold": AIHelperSettings.threshold};
 }
 
 function cosineSimilarity(vecA, vecB) {
@@ -309,4 +370,41 @@ function cosineSimilarity(vecA, vecB) {
         normB += vecB[i] * vecB[i];
     }
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+createContextMenu();
+
+async function addDataAsMenu(){
+    if(!initCompleted){
+        await init();
+    }
+
+    if(Object.keys(AIFillFormOptions).length === 0){
+        return;
+    }
+
+    chrome.contextMenus.create({
+        id: "dataseparator",
+        type: "separator",
+        contexts: ["editable"]
+    });
+
+    chrome.contextMenus.create({
+        id: "dataset",
+        title: "Insert data manually",
+        contexts: ["editable"]
+    });
+
+    var createdMenus = [];
+    for (const [key, value] of Object.entries(AIFillFormOptions)) {
+        const menuId = key.replace(/\W/g, '').toLowerCase();
+        if(createdMenus.includes(menuId)) {  continue;  }
+        chrome.contextMenus.create({
+            id: menuId,
+            parentId: "dataset",
+            title: `☛ Insert ${key} ( ${value} )`,
+            contexts: ["editable"]
+        });
+        createdMenus.push(menuId);
+    }
 }

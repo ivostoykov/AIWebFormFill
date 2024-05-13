@@ -1,25 +1,27 @@
 var _field;
+var _AiFillTarget = {};
 
 if (document.readyState !== 'loading') {
-  console.log('document is already ready, just execute code here');
   setListner();
 } else {
   document.addEventListener('DOMContentLoaded', function () {
-      console.log('document was not ready, place code here');
       setListner();
   });
 }
 
 function setListner() {
-  console.log(`${setListner.name} fired. iframes:`, document.querySelectorAll('iframe').length);
   document.addEventListener('contextmenu', function(event) {
-    console.log('Right-clicked element in main document:', event.target);
     _field = event.target;
+    _AiFillTarget['doc'] = event.target.ownerDocument;
+    _AiFillTarget['frame'] = event.target.ownerDocument.defaultView.frameElement;
+    _AiFillTarget['field'] = event.target;
   }, true);
 }
 
 browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
+  // Comatibility with Chrome, which opens context menu on double click and on 1st click there is not information about the target
+  if(!_field || Object.keys(_AiFillTarget).length < 1){  return;  }
   switch (request.action) {
     case "getFormFields":
       if(!_field){  return;  }
@@ -32,10 +34,7 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     case "getClickedElement":
       if(!_field) {  return false;  }
 
-      let attr = {};
-      if(_field.id){  attr['id'] = _field.id;  }
-      if(_field.name){  attr['name'] = _field.name;  }
-      if(_field.type){  attr['type'] = _field.type;  }
+      let attr = getThisField(_field);
 
       if(Object.keys(attr).length === 0){
         console.warn('Element does not have needed attributes!');
@@ -45,10 +44,14 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       sendResponse({elementDetails: JSON.stringify(attr)});
       return true;
     case "sendProposalValue":
-      fillElementWithProposedValue(request.value);
+      let el1 = isValidRequestValue(request.value)
+      if(!el1){  return;  }
+      fillElementWithProposedValue(el1[0]);
       break;
     case "sentFormValues":
-      fillFormWithProposedValues(request.value);
+      let el2 = isValidRequestValue(request.value)
+      if(!el2){  return;  }
+      fillFormWithProposedValues(el2);
       break;
     case "showFieldsMetadata":
       if (!_field) {  return false;  }
@@ -71,8 +74,21 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   }
 });
 
+function isValidRequestValue(requestValue){
+  if(Array.isArray(requestValue)){
+    return requestValue;
+  } else {
+    if(requestValue.constructor === Object){
+      return request.value;
+    }
+  }
+  return false;
+}
+
 function findMatchingElement(elementAttributes) {
   const attr2exclude = ['type', 'class', 'value', 'outerHtml', 'label', 'required', 'pattern'];
+  const doc = _AiFillTarget.frame ? _AiFillTarget.frame.contentDocument : _AiFillTarget.doc;
+
   let firstHit = null;
 
   if('id' in elementAttributes){
@@ -93,15 +109,23 @@ function findMatchingElement(elementAttributes) {
 }
 
 function fillFormWithProposedValues(formValues){
+  if(!Array.isArray(formValues)){  formValues = [formValues];  }
   if(formValues.length < 1){
     showMessage('No suitable values proposed for this form.', "warn");
     console.warn('No suitable values proposed for this form.');
     return;
   }
 
+  var suggestedValue;
   for (let i = 0, l = formValues.length; i < l; i++) {
     let elm = formValues[i];
-    const suggestedValue = elm?.data || '';
+    try {
+      suggestedValue = JSON.parse(elm?.data || '{"closest": "unknown", "similarity": -1, "threshold": -1}');
+    } catch (err) {
+      console.err(">>> json parst failed!", err)
+      suggestedValue = {"closest": "unknown", "similarity": -1, "threshold": -1};
+    }
+
     if(elm.data){
       delete elm.data;
     }
@@ -116,23 +140,60 @@ function fillFormWithProposedValues(formValues){
     if (!toFill) {
       console.warn(`No element found with the specified id or name - ${elm}.`);
       return;
-      }
+    }
 
     toFill.focus();
-    toFill.value = suggestedValue;
+    showSimilarityHint(toFill, suggestedValue.similarity);
+    toFill.value = suggestedValue?.closest || '';
     let event = new Event('input', { bubbles: true });
     toFill.dispatchEvent(event);
     toFill.blur();
   }
 }
 
+function showSimilarityHint(field, similarity, duration = 4000) {
+  const hint = document.createElement('div');
+  hint.textContent = `Similarity: ${similarity}`;
+  hint.style.cssText = 'position: absolute; background-color: lightyellow; padding: 10px; border-radius: 5px; border: 1px solid lightgray; visibility: visible; z-index: 100; transition: opacity 0.8s ease-out; opacity: 1; font-size: 12px';
+  document.body.appendChild(hint);
+
+  const rect = field.getBoundingClientRect();
+  hint.style.top = `${window.scrollY + rect.top - hint.offsetHeight / 2}px`; // 5px above the input
+  hint.style.left = `${window.scrollX + rect.left + rect.width / 2}px`;
+  hint.style.visibility = 'visible';
+
+  setTimeout(() => {
+    hint.style.opacity = '0';
+    setTimeout(() => {
+        hint.parentNode.removeChild(hint);
+    }, 1000);
+  }, duration);
+}
+
 function fillElementWithProposedValue(value = 'unknown'){
-  if (!_field) {
+  if(!value.data){
+    console.warn("No data found", value);
+    return;
+  }
+
+  var data;
+  try {
+    data = JSON.parse(value.data);
+    delete value.data;
+  } catch (e) {
+    console.error('Error parsing JSON', e);
+    return;
+  }
+
+  const key = Object.keys(value)[0];
+  const toFill = findMatchingElement(value[key]); // value[key] = element attributes with values
+  if (!toFill) {
     console.warn("The field is undefined", _field, value);
     return;
   }
 
-  _field.value = value;
+  toFill.value = data.closest;
+  showSimilarityHint(toFill, 1);
 }
 
 function getInputFormFields(el){
@@ -178,29 +239,37 @@ function getFormFields(el){
     return formFields;
   }
 
-  const attr2ignore = ['style', 'placeholder', 'required'];
   inputs.forEach(function (field) {
-    let fieldData = {};
-    const tag = field.tagName.toLowerCase();
-    fieldData[tag] = {};
-    for (let i = 0, l = field.attributes.length; i < l; i++) {
-      const attr = field.attributes[i];
-      if (attr2ignore.includes(attr.name)) { continue; }
-      fieldData[tag][attr.name] = attr.value;
-    }
-
-    const label = checkAndGetLabel(field);
-    if(label){
-      fieldData[tag]['label'] = label;
-    }
-
-    if (Object.keys(fieldData[tag]).length > 0) {
-      fieldData[tag]['outerHtml'] = field.outerHTML;
-      formFields.push(fieldData);
+    const fld = getThisField(field);
+    if(fld){
+      formFields.push(fld);
     }
   });
 
   return formFields;
+}
+
+function getThisField(field) {
+  const attr2ignore = ['style', 'placeholder', 'required'];
+  let fieldData = {};
+  const tag = field.tagName.toLowerCase();
+  fieldData[tag] = {};
+  for (let i = 0, l = field.attributes.length; i < l; i++) {
+    const attr = field.attributes[i];
+    if (attr2ignore.includes(attr.name)) { continue; }
+    fieldData[tag][attr.name] = attr.value;
+  }
+
+  const label = checkAndGetLabel(field);
+  if (label) {
+    fieldData[tag]['label'] = label;
+  }
+
+  if (Object.keys(fieldData[tag]).length > 0) {
+    fieldData[tag]['outerHtml'] = field.outerHTML;
+  }
+
+  return fieldData;
 }
 
 function getPopup(){

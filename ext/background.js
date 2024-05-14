@@ -351,8 +351,10 @@ function getBestMatch(value){
     }
 
     let closest = Object.keys(similarities).reduce((a, b) => similarities[a] > similarities[b] ? a : b);
+    let result = similarities[closest] >= AIHelperSettings.threshold ? closest : '';
 
-    return {"closest": closest, "similarity": similarities[closest], "threshold": AIHelperSettings.threshold};
+    return {"closest": result, "similarity": similarities[closest], "threshold": AIHelperSettings.threshold};
+    // return {"closest": closest, "similarity": similarities[closest], "threshold": AIHelperSettings.threshold};
 }
 
 function cosineSimilarity(vecA, vecB) {

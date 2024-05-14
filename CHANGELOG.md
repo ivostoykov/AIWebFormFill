@@ -11,12 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.7.20] - 2024-05-14 - latest
 
-- Similarity how is displayed for each field filled out
-- Localhost port now is available in the options page
-- A Threshold field is added in the options page. The value is intended to be used as a filter to avoid wrong suggestions
-- Some refactoring work was done in attempt to optimise the process of the values
-- The values provided in the option's `Form Fields Values` field are now availabel as a context menu for direct insert.
-- Some bugs were fixed.
+- A similarity score is provided for each field that has been populated with a proposed value.
+- The localhost port can be configured through the options page.
+- The Threshold field has been introduced on the options page for filtering out incorrect suggestions. A higher value ensures a stricter matching.
+- Refactoring efforts have been made to improve the efficiency of value processing.
+- The values listed in the options' Form Fields Values field can now be inserted directly from a contextual menu.
+- Several issues have been resolved.
 
 <hr>
 

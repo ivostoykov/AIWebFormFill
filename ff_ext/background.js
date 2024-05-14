@@ -2,7 +2,7 @@ const formFieldsStorageKey = "AIFillForm";
 const AIsettingsStarageKey = "settings";
 
 var AIFillFormOptions = {};
-var LLMStudioOptions = {};
+var AIHelperSettings = {};
 var initCompleted = false;
 /* const embeddings = {
     "emailAddress": [...],  // ~ 400-dim embedding for emailAddress
@@ -142,8 +142,8 @@ async function init() {
     if(Object.keys(AIFillFormOptions).length === 0){
         AIFillFormOptions = await getOptions();
     }
-    if(Object.keys(LLMStudioOptions).length === 0){
-        LLMStudioOptions = await getLLMStudioOptions();
+    if(Object.keys(AIHelperSettings).length === 0){
+        AIHelperSettings = await getLLMStudioOptions();
     }
     if(Object.keys(staticEmbeddings).length > 0){
         initCompleted = true;
@@ -293,16 +293,17 @@ function getOptions() {
 function getLLMStudioOptions() {
     return new Promise((resolve, reject) => {
         const defaults = {
-            "localPort": "1234",
+            "threshold": 0.5,
+            "port": 1234,
         };
-        browser.storage.sync.get([AIsettingsStarageKey]).then((obj) => {
+        browser.storage.sync.get([AIsettingsStarageKey])
+        .then((obj) => {
             const options = Object.assign({}, defaults, obj.laiOptions);
             resolve(options);
         }).catch((error) => {
             reject(error);
         });
     });
-
 }
 
 async function fetchData(body = {}){
@@ -310,7 +311,7 @@ async function fetchData(body = {}){
         return [];
     }
 
-    const url = `http://localhost:${LLMStudioOptions.localPort || "1234"}/v1/embeddings`;
+    const url = `http://localhost:${AIHelperSettings.localPort || "1234"}/v1/embeddings`;
     try {
         const response = await fetch(url, {
             method: 'POST',
@@ -351,8 +352,10 @@ function getBestMatch(value){
     }
 
     let closest = Object.keys(similarities).reduce((a, b) => similarities[a] > similarities[b] ? a : b);
+    let result = similarities[closest] >= AIHelperSettings.threshold ? closest : '';
 
-    return {"closest": closest, "similarity": similarities[closest], "threshold": AIHelperSettings.threshold};
+    return {"closest": result, "similarity": similarities[closest], "threshold": AIHelperSettings.threshold};
+    // return {"closest": closest, "similarity": similarities[closest], "threshold": AIHelperSettings.threshold};
 }
 
 function cosineSimilarity(vecA, vecB) {

@@ -15,6 +15,7 @@ function setListner() {
     _AiFillTarget['doc'] = event.target.ownerDocument;
     _AiFillTarget['frame'] = event.target.ownerDocument.defaultView.frameElement;
     _AiFillTarget['field'] = event.target;
+console.log(`${setListner.name} - _field: `, _field, ' _AiFillTarget: ', _AiFillTarget);
   }, true);
 }
 
@@ -92,18 +93,18 @@ function findMatchingElement(elementAttributes) {
   let firstHit = null;
 
   if('id' in elementAttributes){
-    firstHit = document.getElementById(elementAttributes.id);
+    firstHit = doc.getElementById(elementAttributes.id);
     if(firstHit){  return firstHit;  }
   }
 
   let querySelector = [];
   for (const [key, value] of Object.entries(elementAttributes)) {
-    if (attr2exclude.includes(key)) continue;
+    if (attr2exclude.includes(key)) {  continue;  }
 
     querySelector.push(`[${key}="${value}"]`);
   }
 
-  firstHit = document.querySelector(querySelector.join(''));
+  firstHit = doc.querySelector(querySelector.join(''));
 
   return firstHit;
 }

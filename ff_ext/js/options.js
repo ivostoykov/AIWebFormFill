@@ -1,7 +1,7 @@
 const formFieldsStorageKey = "AIFillForm";
 const AIsettingsStarageKey = "settings";
 
-var formFields = {
+var defaultFormFields = {
     "fullName": "",
     "firstName": "",
     "lastName": "",
@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.querySelector(".cancel").addEventListener("click", (e) => {
-        document.getElementById('jsonInput').value = JSON.stringify(formFields, null, 4);
+        document.getElementById('jsonInput').value = JSON.stringify(defaultFormFields, null, 4);
     });
 
     function showMessage(msg, type) {
@@ -59,8 +59,8 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadSettings() {
         try {
             const obj = await browser.storage.sync.get("AIFillForm");
-            const items = Object.assign({}, defaultFormFields, obj[formFieldsStorageKey]);
-            const settings = Object.assign({}, defaultSettings, obj[AIsettingsStarageKey]);
+            const items = Object.assign({}, defaultFormFields, (obj[formFieldsStorageKey] || {}));
+            const settings = Object.assign({}, defaultSettings, (obj[AIsettingsStarageKey] || {}));
             jsonInput.value = JSON.stringify(items, null, 4);
             for (const [key, value] of Object.entries(settings)) {
                 const el = document.getElementById(key);

@@ -1,2 +1,0 @@
-Starting script
-Directory: /home/ivo/Projects/js/Chrome_Plugins/AIWebFormFill/ext

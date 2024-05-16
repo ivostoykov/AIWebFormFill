@@ -1,5 +1,6 @@
 var _field;
 var _AiFillTarget = {};
+var similarityInfo = [];
 
 if (document.readyState !== 'loading') {
   setListner();
@@ -46,11 +47,14 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     case "sendProposalValue":
       let el1 = isValidRequestValue(request.value)
       if(!el1){  return;  }
-      fillElementWithProposedValue(el1[0]);
+      similarityInfo = [];
+      if(Array.isArray(el1)){  el1 = el1[0];}
+      fillElementWithProposedValue(el1);
       break;
     case "sentFormValues":
       let el2 = isValidRequestValue(request.value)
       if(!el2){  return;  }
+      similarityInfo = [];
       fillFormWithProposedValues(el2);
       break;
     case "showFieldsMetadata":
@@ -68,21 +72,20 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
       replaceFieldValue(_field);
       break;
+    case "communicationError":
+      showMessage(request.value, 'error');
+      break;
+    case "showSimilarityAgain":
+      showSimilarityAgain();
+      break;
     default:
       console.warn('Received unknown action:', request.action);
       break;
   }
 });
 
-function isValidRequestValue(requestValue){
-  if(Array.isArray(requestValue)){
-    return requestValue;
-  } else {
-    if(requestValue.constructor === Object){
-      return request.value;
-    }
-  }
-  return false;
+function isValidRequestValue(requestValue) {
+  return Array.isArray(requestValue) || requestValue instanceof Object ? requestValue : false;
 }
 
 function findMatchingElement(elementAttributes) {
@@ -98,7 +101,7 @@ function findMatchingElement(elementAttributes) {
 
   let querySelector = [];
   for (const [key, value] of Object.entries(elementAttributes)) {
-    if (attr2exclude.includes(key)) continue;
+    if (attr2exclude.includes(key)) {  continue;  }
 
     querySelector.push(`[${key}="${value}"]`);
   }
@@ -151,6 +154,10 @@ function fillFormWithProposedValues(formValues) {
   }
 }
 
+function hideSimilatityHints(hints){
+  hints.forEach(hint => hint.parentNode.removeChild(hint));
+}
+
 function showSimilarityHint(field, similarity, duration = 4000) {
   const hint = document.createElement('div');
   hint.textContent = `Similarity: ${similarity}`;
@@ -161,13 +168,18 @@ function showSimilarityHint(field, similarity, duration = 4000) {
   hint.style.top = `${window.scrollY + rect.top - hint.offsetHeight / 2}px`; // 5px above the input
   hint.style.left = `${window.scrollX + rect.left + rect.width / 2}px`;
   hint.style.visibility = 'visible';
+  similarityInfo.push({"field": field, "similarity": similarity});
 
-  setTimeout(() => {
-    hint.style.opacity = '0';
+  if(duration > 0) {
     setTimeout(() => {
+      hint.style.opacity = '0';
+      setTimeout(() => {
         hint.parentNode.removeChild(hint);
-    }, 1000);
-  }, duration);
+      }, 1000);
+    }, duration);
+  } else {
+    return hint;
+  }
 }
 
 function fillElementWithProposedValue(value = 'unknown') {
@@ -196,7 +208,33 @@ function fillElementWithProposedValue(value = 'unknown') {
   showSimilarityHint(toFill, 1);
 }
 
-function getInputFormFields(el) {
+function isVisible(el) {
+  if (!el) return false;
+
+  if (el.offsetParent === null) { return false;  }
+
+  const style = window.getComputedStyle(el);
+  if ( style.width === "0px" || style.height === "0px" || style.opacity === "0"
+    || style.display === "none" || style.visibility === "hidden" ) {
+      return false;
+  }
+
+  let currentElement = el;
+  while (currentElement) {
+      if (
+          currentElement.hasAttribute('hidden') ||
+          currentElement.getAttribute('aria-hidden') === 'true' ||
+          currentElement.hasAttribute('inert')
+      ) {
+          return false;
+      }
+      currentElement = currentElement.parentElement;
+  }
+
+  return true;
+}
+
+function getInputFormFields(el){
   const theForm = el?.closest('form') || el?.closest('#form');
   if (!theForm) {
     console.error("No form found to fill", theForm);
@@ -205,13 +243,13 @@ function getInputFormFields(el) {
 
   const inputs = theForm.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"]');
   var formFields = [];
-  inputs.forEach(function (field) {
-    const rect = field.getBoundingClientRect();
-    const isVisible = (rect.width > 0 || rect.height > 0) && document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) === field;
-    if (isVisible) {
+  for (let i = 0, l = inputs.length; i < l; i++) {
+    const field = inputs[i];
+
+    if(isVisible(field)) {
       formFields.push(field);
     }
-  });
+  }
 
   return formFields;
 
@@ -250,7 +288,7 @@ function getFormFields(el) {
 }
 
 function getThisField(field) {
-  const attr2ignore = ['style', 'placeholder', 'required'];
+  const attr2ignore = ['style', 'placeholder', 'required', 'maxlength', 'aria-required', 'autocomplete'];
   let fieldData = {};
   const tag = field.tagName.toLowerCase();
   fieldData[tag] = {};
@@ -499,4 +537,23 @@ function replaceFieldValue(field) {
   replaceButton.onclick = function () {
     typeReplacement(field, previewResult.innerText);
   };
+}
+
+function showSimilarityAgain(){
+  var hints = [];
+  similarityInfo.forEach(el => {
+    const hint = showSimilarityHint(el.field, el.similarity, 0);
+    if(hint){  hints.push(hint);  }
+  });
+
+  const hideButton = document.createElement('button');
+  hideButton.textContent = "Hide similarities";
+  hideButton.style.cssText = 'position: fixed; left: 0; bottom: 0; width: 100%; height: 50px z-index: 999; text-align: center; background-color: lightyellow;outline: none; border:none';
+
+  document.body.appendChild(hideButton);
+
+  hideButton.addEventListener('click', () => {
+    hideSimilatityHints(hints);
+    document.body.removeChild(hideButton);
+  });
 }

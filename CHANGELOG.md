@@ -9,13 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.7.20] - 2024-05-14 - latest
+## [1.7.85] - 2024-05-14 - latest
 
 - A similarity score is provided for each field that has been populated with a proposed value.
 - The localhost port can be configured through the options page.
 - The Threshold field has been introduced on the options page for filtering out incorrect suggestions. A higher value ensures a stricter matching.
 - Refactoring efforts have been made to improve the efficiency of value processing.
 - The values listed in the options' Form Fields Values field can now be inserted directly from a contextual menu.
+- Calculated similarities are persistent until the next call and can be reviewed again.
 - Several issues have been resolved.
 
 <hr>

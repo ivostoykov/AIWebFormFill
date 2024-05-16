@@ -48,6 +48,12 @@ chrome.runtime.onInstalled.addListener(async function() {
         contexts: ["editable"]
     });
 
+    chrome.contextMenus.create({
+        id: "showSimilarityAgain",
+        title: "⅏ Show similarities again",
+        contexts: ["editable"]
+    });
+
     await addDataAsMenu();
 
     chrome.contextMenus.create({
@@ -120,6 +126,9 @@ chrome.contextMenus.onClicked.addListener(function(info, tab) {
         case "replacefieldvalue":
             chrome.tabs.sendMessage(tab.id, {action: "replaceFieldValue"});
             break;
+        case "showSimilarityAgain":
+            chrome.tabs.sendMessage(tab.id, {action: "showSimilarityAgain"});
+            break;
         case "openOptions":
             chrome.runtime.openOptionsPage(() => {
                 if (chrome.runtime.lastError) {
@@ -166,7 +175,6 @@ async function processForm(obj, tabId){
         await init();
     }
 
-    const keys2exclude = ['class', 'type', 'outerHtml', 'value'];
     for (let i = 0, l = obj.length; i < l; i++) {
         const data = await getSimilarityForElemnt(obj[i]);
         if(data){
@@ -176,35 +184,89 @@ async function processForm(obj, tabId){
     chrome.tabs.sendMessage(tabId, { action: "sentFormValues", value: obj });
 }
 
+async function getSimilarityForMultiWordLabel(label){
+    const parts = label.toLowerCase().split(/\s/);
+    const bestMatches = [];
+    for (let x = 0, z = parts.length; x < z; x++) {
+        const value = parts[x];
+        dynamicEmbeddings[value] = await fetchData({ "input": value });
+        bestMatches.push(getBestMatch(value));
+    }
+    bestMatches.sort((a, b) => b.similarity - a.similarity);
+    return bestMatches[0];
+}
+
 async function getSimilarityForElemnt(el){
     const mainObjKey = Object.keys(el)[0];
     if(!mainObjKey){  return;  }
 
-    if(el[mainObjKey].label){
-        const label = el[mainObjKey].label.replace(/\W/g, '');
-        bestKey = await getBestKeyFor(label);
-        return bestKey;
+    const labelResult = await getSimilarityForElementLabel(el[mainObjKey]?.label);
+    if(labelResult){
+        return labelResult;
     }
 
-    const objectKeys = Object.keys(el[mainObjKey]);
-    const keysToIterate = objectKeys.filter(key => !keys2exclude.includes(key));
+    const directMatchResult = checkForDirectMatch(el[mainObjKey]);
+    if(directMatchResult){  return directMatchResult;  }
+
+    return await getAttributeBestMatch(el[mainObjKey]);
+}
+
+async function getAttributeBestMatch(elAttributes) {
+    const keysToIterate = getKeysToIterate(Object.keys(elAttributes));
+    const bestMatches = []; // no direct match - calc the best match by attributes
+    for (let x = 0, z = keysToIterate.length; x < z; x++) {
+        let attributeName = keysToIterate[x];
+        let attributeValue = elAttributes[attributeName];
+        dynamicEmbeddings[attributeValue] = await fetchData({ "input": attributeValue.toLowerCase() });
+        bestMatches.push(getBestMatch(attributeValue));
+    }
+    bestMatches.sort((a, b) => b.similarity - a.similarity);
+    return bestMatches[0];
+}
+
+function checkForDirectMatch(elData){
+    if(!elData){
+        return false;
+    }
+
+    const objectKeys = Object.keys(elData);
+    if(objectKeys.length < 1){  return false;  }
+
+    const keysToIterate = getKeysToIterate(objectKeys);
     for (let x = 0, z = keysToIterate.length; x < z; x++) {
         let key = keysToIterate[x];
-        let value = el[mainObjKey][key];
+        let value = elData[key];
         if(staticEmbeddings[value]){ // direct match found
             return {"closest": value, "similarity": 1, "threshold": AIHelperSettings.threshold};
         }
     }
 
-    const bestMatches = []; // no direct match - calc the best match by attributes
-    for (let x = 0, z = keysToIterate.length; x < z; x++) {
-        let key = keysToIterate[x];
-        let value = el[mainObjKey][key];
-        dynamicEmbeddings[value] = await fetchData({ "input": value.toLowerCase() });
-        bestMatches.push(getBestMatch(value));
+    return false;
+}
+
+function getKeysToIterate(objectKeys) {
+    const keys2exclude = ['class', 'type', 'outerHtml', 'value', 'label'];
+    return objectKeys.filter(key => !keys2exclude.includes(key));
+}
+
+async function getSimilarityForElementLabel(label) {
+    if(!label){  return false;  }
+    label = label.replace(/[^a-zA-Z0-9\- ]/g, '').trim();
+    bestKey = await getBestKeyFor(label);
+    if(bestKey.similarity >= AIHelperSettings.threshold){
+        return bestKey;
     }
-    getBestMatch.sort((a, b) => b.similarity - a.similarity);
-    return {"closest": getBestMatch[0], "similarity": 1, "threshold": AIHelperSettings.threshold};
+
+    if (label.indexOf(' ') > -1) {
+        bestKey = await getSimilarityForMultiWordLabel(label);
+        if(bestKey.similarity < AIHelperSettings.threshold) {
+            return false;
+        }
+
+        bestKey.closest =  AIFillFormOptions[bestKey.closest] || '';
+    }
+
+    return bestKey;
 }
 
 async function getBestKeyFor(prop){
@@ -228,13 +290,13 @@ function getAndProcessClickedElement(tab, menuId, shouldProcessElement = false){
 
     chrome.tabs.sendMessage(tab.id, {action: "getClickedElement"}, async function(response) {
         if (response && response.elementDetails) {
+            let obj;
             try {
-                let obj = JSON.parse(response.elementDetails);
+                obj = JSON.parse(response.elementDetails);
                 if(Array.isArray(obj) && obj.length > 0){
                     if (shouldProcessElement) {
                         await processForm(obj, tab.id);
                     } else {
-                        var el;
                         for (const [key, value] of Object.entries(AIFillFormOptions)) {
                             if(menuId === key.replace(/\W/g, '').toLowerCase()){
                                 obj[0]['data'] = JSON.stringify({"closest": value, "similarity": 1, "threshold": AIHelperSettings.threshold});
@@ -243,6 +305,12 @@ function getAndProcessClickedElement(tab, menuId, shouldProcessElement = false){
                         }
                         chrome.tabs.sendMessage(tab.id, { action: "sendProposalValue", value: obj });
                     }
+                } else if(obj.constructor === Object){
+                    let data = await getSimilarityForElemnt(obj);
+                    obj['data'] = JSON.stringify(data);
+                    chrome.tabs.sendMessage(tab.id, { action: "sendProposalValue", value: obj });
+                } else {
+                    console.error(`Unexpected type: ${typeof(obj)}`, obj);
                 }
             } catch (error) {
                 console.error(error);
@@ -306,8 +374,8 @@ function getLLMStudioOptions() {
     });
 }
 
-async function fetchData(body = {}){
-    if(!body || Object.keys(body).length < 1){
+async function fetchData(body = {}) {
+    if (!body || Object.keys(body).length < 1) {
         return [];
     }
 
@@ -320,17 +388,34 @@ async function fetchData(body = {}){
             },
             body: JSON.stringify(body)
         });
+
         if (!response.ok) {
-            console.log("Non-ok response received", response.status, await response.text());
-            console.log("body sent", body);
-            return [];
+            const responseText = await response.text();
+            throw new Error(`Non-ok response received: ${response.status} - ${responseText}`);
         }
+
         const data = await response.json();
         return data.data[0]?.embedding ?? [];
     } catch (err) {
-        console.log("Error in fetch or processing:", err, body);
+        let errorMessage = '';
+        console.log("Body sent", body);
+        // Handle network errors or other issues with the fetch request
+        if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+            errorMessage = "Network error: Unable to connect to the server. Please check your connection.";
+            console.error(errorMessage);
+        } else {
+            errorMessage = `Error in fetch or processing: ${err.message}`
+            console.error("Error in fetch or processing:", err);
+        }
+        sendErrorMessage(tabId, errorMessage);
         return [];
     }
+}
+
+function sendErrorMessage(tabId, message){
+    chrome.tabs.sendMessage(tabId, { action: "communicationError", value: message || 'Error!' })
+    .then(()=>{})
+    .catch(e => console.log(e));
 }
 
 function getBestMatch(value){
@@ -354,7 +439,6 @@ function getBestMatch(value){
     let result = similarities[closest] >= AIHelperSettings.threshold ? closest : '';
 
     return {"closest": result, "similarity": similarities[closest], "threshold": AIHelperSettings.threshold};
-    // return {"closest": closest, "similarity": similarities[closest], "threshold": AIHelperSettings.threshold};
 }
 
 function cosineSimilarity(vecA, vecB) {
@@ -373,6 +457,8 @@ function cosineSimilarity(vecA, vecB) {
     }
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
+
+
 
 async function addDataAsMenu(){
     if(!initCompleted){

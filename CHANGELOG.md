@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.7.85] - 2024-05-14 - latest
+## [1.7.85] - 2024-05-15 - latest
 
 - A similarity score is provided for each field that has been populated with a proposed value.
 - The localhost port can be configured through the options page.

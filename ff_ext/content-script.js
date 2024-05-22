@@ -235,7 +235,7 @@ function isVisible(el) {
 }
 
 function getInputFormFields(el) {
-  const theForm = el?.closest('form') || el?.closest('#form');
+  const theForm = el?.closest('form') || el?.closest('#form') || document;
   if (!theForm) {
     console.error("No form found to fill", theForm);
     return [];

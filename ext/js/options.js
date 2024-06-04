@@ -1,5 +1,6 @@
 const formFieldsStorageKey = "AIFillForm";
 const AIsettingsStarageKey = "settings";
+const staticEmbeddingsStorageKey = "staticEmbeddings";
 
 var defaultFormFields = {
     "fullName": "",
@@ -14,11 +15,13 @@ var defaultFormFields = {
 
 var defaultSettings = {
     "port": 1234,
-    "threshold": 0.5
+    "threshold": 0.5,
+    "calcOnLoad": false
 };
 
 document.addEventListener("DOMContentLoaded", () => {
     const manifest = chrome.runtime.getManifest();
+    document.querySelector('span.options-title').textContent = manifest.name;
     document.querySelector('span.js-version').textContent = `version: ${manifest.version || '???'}`;
     const jsonInput = document.getElementById("jsonInput");
     const messageRibbon = document.getElementById("message-ribbon");
@@ -32,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 [formFieldsStorageKey]: userInput,
                 [AIsettingsStarageKey]: settingValues
             });
+            await chrome.storage.local.remove([staticEmbeddingsStorageKey]);
             showMessage("Settings saved successfully!", "success");
         } catch (error) {
             showMessage("Invalid JSON: " + error.message, "error");
@@ -68,8 +72,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     el.value = value;
                 }
             }
-        } catch (err) {
-            showMessage("Failed to load settings: " + error.message, "error");
+        } catch (e) {
+            console.error(`>>> ${manifest?.name ?? ''}`, e.message, e);
+            showMessage("Failed to load settings: " + e.message, "error");
         }
     }
 

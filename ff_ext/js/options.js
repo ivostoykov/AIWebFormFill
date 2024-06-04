@@ -1,5 +1,6 @@
 const formFieldsStorageKey = "AIFillForm";
 const AIsettingsStarageKey = "settings";
+const staticEmbeddingsStorageKey = "staticEmbeddings";
 
 var defaultFormFields = {
     "fullName": "",
@@ -14,24 +15,27 @@ var defaultFormFields = {
 
 var defaultSettings = {
     "port": 1234,
-    "threshold": 0.5
+    "threshold": 0.5,
+    "calcOnLoad": false
 };
 
 document.addEventListener("DOMContentLoaded", () => {
     const manifest = browser.runtime.getManifest();
+    document.querySelector('span.options-title').textContent = manifest.name;
     document.querySelector('span.js-version').textContent = `version: ${manifest.version || '???'}`;
     const jsonInput = document.getElementById("jsonInput");
     const messageRibbon = document.getElementById("message-ribbon");
 
     document.querySelector(".save").addEventListener("click", async (e) => {
         try {
-            const userInput = JSON.parse(jsonInput.value); // This will throw an error if the JSON is not valid
+            const userInput = JSON.parse(jsonInput.value);
             var settingValues = {};
             document.querySelectorAll('input[type="number"]').forEach(el => settingValues[el.id] = el.value );
             await browser.storage.sync.set({
                 [formFieldsStorageKey]: userInput,
                 [AIsettingsStarageKey]: settingValues
             });
+            await browser.storage.local.remove([staticEmbeddingsStorageKey]);
             showMessage("Settings saved successfully!", "success");
         } catch (error) {
             showMessage("Invalid JSON: " + error.message, "error");
@@ -44,8 +48,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function showMessage(msg, type) {
         messageRibbon.textContent = msg;
-        const styles = ["success", "error", "info", "warning"];
-        if (!styles.includes(type)) {
+        const styles = ["success", "error", "info", "warning"]
+        if(!styles.includes(type)){
             type = "info";
         }
 
@@ -58,9 +62,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function loadSettings() {
         try {
-            const obj = await browser.storage.sync.get("AIFillForm");
-            const items = Object.assign({}, defaultFormFields, (obj[formFieldsStorageKey] || {}));
-            const settings = Object.assign({}, defaultSettings, (obj[AIsettingsStarageKey] || {}));
+            const obj = await browser.storage.sync.get([formFieldsStorageKey, AIsettingsStarageKey]);
+            const items = Object.assign({}, defaultFormFields, obj[formFieldsStorageKey]);
+            const settings = Object.assign({}, defaultSettings, obj[AIsettingsStarageKey]);
             jsonInput.value = JSON.stringify(items, null, 4);
             for (const [key, value] of Object.entries(settings)) {
                 const el = document.getElementById(key);
@@ -68,8 +72,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     el.value = value;
                 }
             }
-        } catch (error) {
-            showMessage("Failed to load settings: " + error.message, "error");
+        } catch (e) {
+            console.error(`>>> ${manifest?.name ?? ''}`, e.message, e);
+            showMessage("Failed to load settings: " + e.message, "error");
         }
     }
 

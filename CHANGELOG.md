@@ -9,7 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.7.89] - 2024-05-22 - latest
+## [1.12.00] - 2024-06-01 - latest
+
+- refactored finding out the field candidate for auto fill
+- refactored communication with the Embedding and calculation of the similarity
+- refactored populated suggested values in the matching fields
+- added messaging interface to present some additional information to the user
+- removed search and replace functionality
+- added UI messaging for user's convinience
+
+## [1.7.89] - 2024-05-22
 
 - Fixed added to handle pages which forms do not adhere strictly to web standards and thus auto fill fails.
 

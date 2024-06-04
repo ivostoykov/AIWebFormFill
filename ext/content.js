@@ -1,3 +1,4 @@
+const manifest = chrome.runtime.getManifest();
 var _field;
 var _AiFillTarget = {};
 var similarityInfo = [];
@@ -13,73 +14,24 @@ if (document.readyState !== 'loading') {
 function setListner() {
   document.addEventListener('contextmenu', function(event) {
     _field = event.target;
-    _AiFillTarget['doc'] = event.target.ownerDocument;
-    _AiFillTarget['frame'] = event.target.ownerDocument.defaultView.frameElement;
-    _AiFillTarget['field'] = event.target;
+    let attr = getThisField(event.target);
+    chrome.runtime.sendMessage({ action: 'storeRightClickedElement', element: JSON.stringify([attr]) });
   }, true);
 }
 
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+  if(!request?.action){  return;  }   // Chrome opens context menu on double click and on 1st click there is not information about the target
 
-  // Chrome opens context menu on double click and on 1st click there is not information about the target
-  if(!_field || Object.keys(_AiFillTarget).length < 1){  return;  }
   switch (request.action) {
-    case "getFormFields":
-      if(!_field){  return;  }
 
-      const oForm = getFormFields(_field);
-      if (oForm.length < 1) {  return;  }
-
-      sendResponse({ formDetails: JSON.stringify(oForm) });
-      break;
-    case "getClickedElement":
-      if (!_field) {  return false;  }
-
-      let attr = getThisField(_field);
-
-      if (Object.keys(attr).length === 0) {
-        console.warn('Element does not have needed attributes!', _field, attr);
-        return;
-      }
-
-      sendResponse({ elementDetails: JSON.stringify([attr]) });
-      break;
-    case "sendProposalValue":
-      let el1 = isValidRequestValue(request.value)
-      if(!el1){  return;  }
-      similarityInfo = [];
-      if(Array.isArray(el1)){  el1 = el1[0];}
-      fillElementWithProposedValue(el1);
-      break;
-    case "sentFormValues":
-      let el2 = isValidRequestValue(request.value)
-      if(!el2){  return;  }
-      similarityInfo = [];
-      fillFormWithProposedValues(el2);
-      break;
-    case "showFieldsMetadata":
-      if (!_field) {  return false;  }
-
-      showFieldsMetadata(_field);
-      break;
-    case "clearAllFields":
-      if (!_field) {  return false;  }
-
-      clearAllFields(_field);
-      break;
     case "replaceFieldValue":
       if (!_field) {  return false;  }
 
       replaceFieldValue(_field);
       break;
-    case "communicationError":
-      showMessage(request.value, 'error');
-      break;
-    case "showSimilarityAgain":
-      showSimilarityAgain();
-      break;
+
     default:
-      console.warn('Received unknown action:', request.action);
+      console.warn(`${manifest.name ?? ''}: Received unknown action:`, request.action);
       break;
   }
 });
@@ -88,80 +40,15 @@ function isValidRequestValue(requestValue) {
   return Array.isArray(requestValue) || requestValue instanceof Object ? requestValue : false;
 }
 
-function findMatchingElement(elementAttributes) {
-  const attr2exclude = ['type', 'class', 'value', 'outerHtml', 'label', 'required', 'pattern'];
-  const doc = _AiFillTarget.frame ? _AiFillTarget.frame.contentDocument : _AiFillTarget.doc;
-
-  let firstHit = null;
-
-  if('id' in elementAttributes){
-    firstHit = doc.getElementById(elementAttributes.id);
-    if(firstHit){  return firstHit;  }
-  }
-
-  let querySelector = [];
-  for (const [key, value] of Object.entries(elementAttributes)) {
-    if (attr2exclude.includes(key)) {  continue;  }
-
-    querySelector.push(`[${key}="${value}"]`);
-  }
-
-  firstHit = doc.querySelector(querySelector.join(''));
-
-  return firstHit;
-}
-
-function fillFormWithProposedValues(formValues) {
-  if(!Array.isArray(formValues)){  formValues = [formValues];  }
-  if (formValues.length < 1) {
-    showMessage('No suitable values proposed for this form.', "warn");
-    console.warn('No suitable values proposed for this form.');
-    return;
-  }
-
-  var suggestedValue;
-  for (let i = 0, l = formValues.length; i < l; i++) {
-    let elm = formValues[i];
-    try {
-      suggestedValue = JSON.parse(elm?.data || '{"closest": "unknown", "similarity": -1, "threshold": -1}');
-    } catch (err) {
-      console.err(">>> json parst failed!", err)
-      suggestedValue = {"closest": "unknown", "similarity": -1, "threshold": -1};
-    }
-
-    if(elm.data){
-      delete elm.data;
-    }
-
-    const mainKey = Object.keys(elm)[0];
-    if(!mainKey){
-      console.error('No mainKey found!', elm);
-      continue;
-    }
-
-    let toFill = findMatchingElement(elm[mainKey])
-    if (!toFill) {
-      console.warn(`No element found with the specified id or name - ${JSON.stringify(elm)}.`);
-      return;
-    }
-
-    toFill.focus();
-    showSimilarityHint(toFill, suggestedValue.similarity);
-    toFill.value = suggestedValue?.closest || '';
-    let event = new Event('input', { bubbles: true });
-    toFill.dispatchEvent(event);
-    toFill.blur();
-  }
-}
-
-function hideSimilatityHints(hints){
-  hints.forEach(hint => hint.parentNode.removeChild(hint));
+function hideSimilatityHints(/* hints */){
+  document.querySelectorAll('.js-similarity-hint')?.forEach(hint => hint.parentNode.removeChild(hint));
 }
 
 function showSimilarityHint(field, similarity, duration = 4000) {
   const hint = document.createElement('div');
+  hint.classList.add('js-similarity-hint');
   hint.textContent = `Similarity: ${similarity}`;
-  hint.style.cssText = 'position: absolute; background-color: lightyellow; padding: 10px; border-radius: 5px; border: 1px solid lightgray; visibility: visible; z-index: 100; transition: opacity 0.8s ease-out; opacity: 1; font-size: 12px';
+  hint.style.cssText = 'position: absolute; background-color: lightyellow; padding: 10px; border-radius: 5px; border: 1px solid lightgray; visibility: visible; z-index: 9999; transition: opacity 0.8s ease-out; opacity: 1; font-size: 12px';
   document.body.appendChild(hint);
 
   const rect = field.getBoundingClientRect();
@@ -182,144 +69,104 @@ function showSimilarityHint(field, similarity, duration = 4000) {
   }
 }
 
-function fillElementWithProposedValue(value = 'unknown') {
-  if(!value.data){
-    console.warn("No data found", value);
-    return;
-  }
-
-  var data;
-  try {
-    data = JSON.parse(value.data);
-    delete value.data;
-  } catch (e) {
-    console.error('Error parsing JSON', e);
-    return;
-  }
-
-  const key = Object.keys(value)[0];
-  const toFill = findMatchingElement(value[key]); // value[key] = element attributes with values
-  if (!toFill) {
-    console.warn("The field is undefined", _field, value);
-    return;
-  }
-
-  toFill.value = data.closest;
-  showSimilarityHint(toFill, 1);
-}
-
-function isVisible(el) {
-  if (!el) return false;
-
-  if (el.offsetParent === null) { return false;  }
-
-  const style = window.getComputedStyle(el);
-  if ( style.width === "0px" || style.height === "0px" || style.opacity === "0"
-    || style.display === "none" || style.visibility === "hidden" ) {
-      return false;
-  }
-
-  let currentElement = el;
-  while (currentElement) {
-      if (
-          currentElement.hasAttribute('hidden') ||
-          currentElement.getAttribute('aria-hidden') === 'true' ||
-          currentElement.hasAttribute('inert')
-      ) {
-          return false;
-      }
-      currentElement = currentElement.parentElement;
-  }
-
-  return true;
-}
-
-function getInputFormFields(el){
-  const theForm = el?.closest('form') || el?.closest('#form') || document;
-  if (!theForm) {
-    console.error("No form found to fill", theForm);
-    return [];
-  }
-
-  const inputs = theForm.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"]');
-  var formFields = [];
-  for (let i = 0, l = inputs.length; i < l; i++) {
-    const field = inputs[i];
-
-    if(isVisible(field)) {
-      formFields.push(field);
-    }
-  }
-
-  return formFields;
-
-}
-
-function checkAndGetLabel(field){
-  if(!field) { return; }
-
-  let label = field.id ? document.querySelector(`label[for="${field.id}"]`) : null;
-  if(label) {
-    return label.textContent;
-  }
-
-  if(field.parentElement && field.parentElement.tagName === 'LABEL') {
-    return field?.parentElement?.textContent;
-  }
-
-  return field.closest(`label`)?.textContent;
-}
-
-function getFormFields(el) {
-  const inputs = getInputFormFields(el);
-  var formFields = [];
-  if (inputs && inputs.length < 1) {
-    return formFields;
-  }
-
-  inputs.forEach(function (field) {
-    const fld = getThisField(field);
-    if(fld){
-      formFields.push(fld);
-    }
-  });
-
-  return formFields;
-}
-
-function getThisField(field) {
-  const attr2ignore = ['style', 'placeholder', 'required', 'maxlength', 'aria-required', 'autocomplete'];
-  let fieldData = {};
-  const tag = field.tagName.toLowerCase();
-  fieldData[tag] = {};
-  for (let i = 0, l = field.attributes.length; i < l; i++) {
-    const attr = field.attributes[i];
-    if (attr2ignore.includes(attr.name)) { continue; }
-    fieldData[tag][attr.name] = attr.value;
-  }
-
-  const label = checkAndGetLabel(field);
-  if (label) {
-    fieldData[tag]['label'] = label;
-  }
-
-  if (Object.keys(fieldData[tag]).length > 0) {
-    fieldData[tag]['outerHtml'] = field.outerHTML;
-  }
-
-  return fieldData;
-}
-
 function getPopup() {
+  if (!document.body) {
+    return null;
+  }
+
   const id = 'formFillHelperPopup';
   var popup = document.getElementById(id);
-  if (!popup) {
-    popup = document.createElement('div');
-    popup.id = id;
-    popup.style.cssText = 'position:fixed;top:10%;left:50%;width:75%;height:auto;transform:translateX(-50%);padding:10px;border:1px solid gray;zIndex:1000;text-align:center;font-size:1.5rem;font-weight:bold;color:black;transition:opacity 0.5s ease-out;';
+  if (popup) { return popup; }
 
-    document.body.appendChild(popup);
-  }
+  const dialogStyle = document.createElement('style');
+  dialogStyle.textContent = `
+    .modal-dialog{
+      position: fixed;
+      width: 500px;
+      height: fit-content;
+      padding: 20px;
+      z-index: 999999;
+      text-align: center;
+      black;box-shadow: #777 10px 8px 10px;
+      display: flex;
+      flex-direction: column;
+      outline: none;
+      border: 1px solid #999;
+    }
+
+    .modal-title{
+      margin-bottom:5px;
+    }
+
+    .dialog-content{
+      flex-grow: 1;
+      font-weight: normal;
+      align-self: center;
+      padding-top: 5px;
+    }
+
+    .dialog-button{
+      padding: 10px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+      width: 200px;
+      align-self: center;
+    }
+
+    .dialog-button:hover{
+      box-shadow: #888 10px 8px 10px;
+      border: 1px solid #555;
+    }
+
+    .dialog-button:hover,
+    .dialog-button:focus{
+      outline:none;
+    }
+
+    .dialog-hr{
+      border-top: 1px solid #888;
+    }
+
+    .dlg-icon{
+      position: absolute;
+      top: 5px;
+      left: 20px;
+      width: 42px;
+      height: auto;
+    }`;
+
+  popup = document.createElement('dialog');
+  popup.id = id;
+  popup.classList.add('modal-dialog');
+  popup.appendChild(dialogStyle);
+
+  const icon = document.createElement('img');
+  icon.src = chrome.runtime.getURL('img/warning.svg')
+  icon.classList.add('dlg-icon');
+  popup.appendChild(icon);
+
+  const title = document.createElement('div');
+  title.id = 'popupTitle';
+  title.classList.add('modal-title');
+  title.textContent = manifest.name || '';
+  popup.appendChild(title);
+
+  const hr = document.createElement('hr');
+  hr.classList.add('dialog-hr');
+  popup.appendChild(hr);
+
+  const content = document.createElement('p');
+  content.id = 'popupContent';
+  content.classList.add('dialog-content');
+  popup.appendChild(content);
+
+  const okButton = document.createElement('button');
+  okButton.textContent = 'OK';
+  okButton.classList.add('dialog-button');
+  okButton.addEventListener('click', () => popup.remove() );
+  popup.appendChild(okButton);
+
+  window.top.document.body.appendChild(popup);
 
   return popup;
 }
@@ -329,32 +176,37 @@ function showMessage(message, type = "info") {
 
   let color;
   switch (type) {
+    case 'success':
+    case 's':
+      color = '#bcfebc';
+      break;
     case 'error':
     case 'e':
-      color = 'red'
+      color = '#ffc2c2';
       break;
     case 'warning':
     case 'warn':
     case 'w':
-      color = 'orange'
+      color = '#fca73e';
       break;
     default:
-      color = 'lightgray'
+      color = '#ccc';
       break;
   }
 
   var popup = getPopup();
+  if(!popup){
+    setTimeout(() => {showMessage(`${manifest.name}: ${message}`, type)}, 1000);
+    return;
+  }
 
-  popup.textContent = message;
-  popup.style.background = color;
+  const content = document.getElementById('popupContent');
+  if (content) {
+    content.textContent = message;
+  }
 
-  setTimeout(() => {
-    popup.style.opacity = '0';
-  }, 2500);
-
-  setTimeout(() => {
-    document.body.removeChild(popup);
-  }, 3000);
+  popup.style.backgroundColor = color;
+  popup.showModal();
 }
 
 function createFormFieldHintStyle() {
@@ -387,7 +239,7 @@ function createFormFieldHintStyle() {
 
 function showFormFieldHint(field) {
   if (!field) {
-    console.error("Invalid field", field);
+    console.error(`${manifest.name ?? ''}: Invalid field`, field);
     return;
   }
 
@@ -420,32 +272,9 @@ function showFormFieldHint(field) {
   });
 }
 
-function showFieldsMetadata(field) {
-  const inputs = getInputFormFields(field);
-  if (inputs.length < 1) {
-    console.error("Either field or form is invalid", field);
-    return;
-  }
-
-  inputs.forEach(el => showFormFieldHint(el));
-  showMessage('Click any hint to remove them.');
-}
-
-function clearAllFields(field) {
-  const inputs = getInputFormFields(field);
-  if (inputs.length < 1) {
-    console.error("Either field or form is invalid", field);
-    return;
-  }
-
-  inputs.forEach(el => {
-    el.value = '';
-  });
-}
-
 function positionReplaceElementNearField(replaceElement, field) {
   if (!field) {
-    console.error("Invalid field", field);
+    console.error(`${manifest.name ?? ''}: Invalid field`, field);
     return;
   }
 
@@ -457,7 +286,7 @@ function positionReplaceElementNearField(replaceElement, field) {
 
 function getReplaceElement(field) {
   if (!field) {
-    console.error("Invalid field", field);
+    console.error(`${manifest.name ?? ''}: Invalid field`, field);
     return;
   }
 
@@ -482,7 +311,7 @@ function getReplaceElement(field) {
 
 function typeReplacement(field, text) {
   if (!field) {
-    console.error("Invalid field", field);
+    console.error(`${manifest.name ?? ''}: Invalid field`, field);
     return;
   }
 
@@ -494,7 +323,7 @@ function typeReplacement(field, text) {
 
 function replaceFieldValue(field) {
   if (!field) {
-    console.error("Invalid field", field);
+    console.error(`${manifest.name ?? ''}: Invalid field`, field);
     return;
   }
 
@@ -539,21 +368,23 @@ function replaceFieldValue(field) {
   };
 }
 
-function showSimilarityAgain(){
+function showCalculatedSimilarityAgain(){
   var hints = [];
   similarityInfo.forEach(el => {
     const hint = showSimilarityHint(el.field, el.similarity, 0);
     if(hint){  hints.push(hint);  }
   });
 
+  if(window !== window.top){  return;  }
+
   const hideButton = document.createElement('button');
   hideButton.textContent = "Hide similarities";
-  hideButton.style.cssText = 'position: fixed; left: 0; bottom: 0; width: 100%; height: 50px z-index: 999; text-align: center; background-color: lightyellow;outline: none; border:none';
+  hideButton.style.cssText = 'position: fixed; left: 0; bottom: 0; width: 100%; height: 2rem z-index: 999; text-align: center; background-color: lightyellow;outline: none; border:none; outline: none; height: 75px;';
 
   document.body.appendChild(hideButton);
 
   hideButton.addEventListener('click', () => {
-    hideSimilatityHints(hints);
+    chrome.runtime.sendMessage({ action: "hideSimilatityHints" });
     document.body.removeChild(hideButton);
   });
 }

@@ -8,7 +8,7 @@
 </head>
 <body>
     <header>
-        <h1 class="options-title">AI Web Form Fill Helper Options <span class="js-version"></span></h1>
+        <h1><span class="options-title">AI Web Form Fill Helper Option</span> <span class="js-version"></span></h1>
     </header>
     <hr/>
     <main class="container">
@@ -23,7 +23,10 @@
                         <input class="numeric-settings" type="number" name="port" id="port" placeholder="value between 1 and 65535" min="1" max="65535" step="1">
                         <label class="field-label" for="threshold">Localhost port</label>
                     </div>
-                    <hr>
+                    <div class="row">
+                        <input class="chck-box" type="checkbox" name="calcOnLoad" id="calcOnLoad" />
+                        <label class="field-label" for="calcOnLoad">Calculate similarities on load</label>
+                    </div>
                     <div class="col">
                         <label for="jsonInput" class="block">Form Fields Values</label>
                         <textarea id="jsonInput" rows="10" placeholder="Enter settings in JSON format..."></textarea>
@@ -34,9 +37,9 @@
                     </div>
                 </div>
             </form>
+            <div id="message-ribbon" class="message-ribbon invisible">Message goes here</div>
         </section>
 
-        <div id="message-ribbon" class="message-ribbon invisible">Message goes here</div>
     </main>
     <script src="js/options.js"></script>
 </body>

@@ -20,7 +20,7 @@ var defaultSettings = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-    const manifest = browser.runtime.getManifest();
+    const manifest = chrome.runtime.getManifest();
     document.querySelector('span.options-title').textContent = manifest.name;
     document.querySelector('span.js-version').textContent = `version: ${manifest.version || '???'}`;
     const jsonInput = document.getElementById("jsonInput");
@@ -31,11 +31,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const userInput = JSON.parse(jsonInput.value);
             var settingValues = {};
             document.querySelectorAll('input[type="number"]').forEach(el => settingValues[el.id] = el.value );
-            await browser.storage.sync.set({
+            await chrome.storage.sync.set({
                 [formFieldsStorageKey]: userInput,
                 [AIsettingsStarageKey]: settingValues
             });
-            await browser.storage.local.remove([staticEmbeddingsStorageKey]);
+            await chrome.storage.local.remove([staticEmbeddingsStorageKey]);
             showMessage("Settings saved successfully!", "success");
         } catch (error) {
             showMessage("Invalid JSON: " + error.message, "error");
@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function loadSettings() {
         try {
-            const obj = await browser.storage.sync.get([formFieldsStorageKey, AIsettingsStarageKey]);
+            const obj = await chrome.storage.sync.get([formFieldsStorageKey, AIsettingsStarageKey]);
             const items = Object.assign({}, defaultFormFields, obj[formFieldsStorageKey]);
             const settings = Object.assign({}, defaultSettings, obj[AIsettingsStarageKey]);
             jsonInput.value = JSON.stringify(items, null, 4);

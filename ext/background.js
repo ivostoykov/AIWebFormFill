@@ -30,6 +30,8 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         case 'hideSimilatityHints':
             await removeSimilatityHints(sender.tab);
             break;
+        case "fieldsCollected":
+            await processCollectedFields(message?.fields, sender);
         case "storeRightClickedElement":
             lastRightClickedElement = message.element;
             await chrome.storage.session.set({[sessionStorageKey]: lastRightClickedElement})
@@ -591,22 +593,33 @@ async function executeFormFillRequest(info, tab){
                 return collectInputFields(document);
             }
         });
-
-        if(!Array.isArray(res)) {  res = [res];  }
-
-        for (let i = 0; i < res.length; i++) {
-            if(!res[i]?.result || res[i].result.length < 1){  continue;  }
-            const filledInputs = await processForm(res[i].result, tab);
-            res[i].result = filledInputs;
-            res[i].frmeId = info.frameId;
-
-            await fillInputsWithProposedValues(res[i], tab);
-        }
     } catch (err) {
         console.error(`${manifest?.name ?? ''} >>>`, err);
         console.log(`${manifest.name ?? ''}: fields >>>`, res);
         showUIMessage(tab, err.message, 'error');
     }
+}
+
+async function processCollectedFields(fields, sender){
+    if(!fields || fields.length < 1){
+        return;
+    }
+
+    let res;
+    try {
+        res = JSON.parse(fields);
+    } catch (e) {
+        console.error(`${manifest.name ?? ''}: parsing fields json >>>`, e);
+        return;
+    }
+
+    if(!res){  return;  }
+    const tab = sender.tab;
+    if(!Array.isArray(res)) {  res = [res];  }
+
+    const filledInputs = await processForm(res, tab);
+
+    await fillInputsWithProposedValues({ "result": filledInputs, "frameId": sender.frameId }, tab);
 }
 
 async function showSimilarityAgain(info, tab) {

@@ -1,4 +1,4 @@
-const manifest = browser.runtime.getManifest();
+const manifest = chrome.runtime.getManifest();
 var _field;
 var _AiFillTarget = {};
 var similarityInfo = [];
@@ -7,7 +7,7 @@ if (document.readyState !== 'loading') {
   setListner();
 } else {
   document.addEventListener('DOMContentLoaded', function () {
-    setListner();
+      setListner();
   });
 }
 
@@ -15,12 +15,12 @@ function setListner() {
   document.addEventListener('contextmenu', function(event) {
     _field = event.target;
     let attr = getThisField(event.target);
-    browser.runtime.sendMessage({ action: 'storeRightClickedElement', element: JSON.stringify([attr]) });
+    chrome.runtime.sendMessage({ action: 'storeRightClickedElement', element: JSON.stringify([attr]) });
   }, true);
 }
 
-browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  if(!request?.action){  return;  }
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+  if(!request?.action){  return;  }   // Chrome opens context menu on double click and on 1st click there is not information about the target
 
   switch (request.action) {
 
@@ -136,7 +136,7 @@ function getPopup() {
     }`;
 
   popup = document.createElement('dialog');
-    popup.id = id;
+  popup.id = id;
   popup.classList.add('modal-dialog');
   popup.appendChild(dialogStyle);
 
@@ -379,12 +379,12 @@ function showCalculatedSimilarityAgain(){
 
   const hideButton = document.createElement('button');
   hideButton.textContent = "Hide similarities";
-  hideButton.style.cssText = 'position: fixed; left: 0; bottom: 0; width: 100%; height: 2rem z-index: 999; text-align: center; background-color: lightyellow;outline: none; border:none; outline: none; height: 75px;';
+  hideButton.style.cssText = 'position: fixed; left: 0; bottom: 0; width: 100%; height: 2rem z-index: 999999; text-align: center; background-color: lightyellow;outline: none; border:none; outline: none; height: 75px;';
 
   document.body.appendChild(hideButton);
 
   hideButton.addEventListener('click', () => {
-    browser.runtime.sendMessage({ action: "hideSimilatityHints" });
+    chrome.runtime.sendMessage({ action: "hideSimilatityHints" });
     document.body.removeChild(hideButton);
   });
 }

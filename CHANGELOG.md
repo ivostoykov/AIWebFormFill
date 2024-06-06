@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.12.00] - 2024-06-01 - latest
+## [1.12.00] - 2024-06-05 - latest
 
 - refactored finding out the field candidate for auto fill
 - refactored communication with the Embedding and calculation of the similarity

@@ -379,7 +379,7 @@ function showCalculatedSimilarityAgain(){
 
   const hideButton = document.createElement('button');
   hideButton.textContent = "Hide similarities";
-  hideButton.style.cssText = 'position: fixed; left: 0; bottom: 0; width: 100%; height: 2rem z-index: 999; text-align: center; background-color: lightyellow;outline: none; border:none; outline: none; height: 75px;';
+  hideButton.style.cssText = 'position: fixed; left: 0; bottom: 0; width: 100%; height: 2rem z-index: 999999; text-align: center; background-color: lightyellow;outline: none; border:none; outline: none; height: 75px;';
 
   document.body.appendChild(hideButton);
 

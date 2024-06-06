@@ -17,29 +17,31 @@ var lastRightClickedElement;
 var staticEmbeddings = {};
 var dynamicEmbeddings = {};
 
-browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if(!isContextMenuCreated){
         await createContextMenu(tab);
     }
 });
 
-browser.tabs.onCreated.addListener(async (tab) => {  isContextMenuCreated = false;  });
+chrome.tabs.onCreated.addListener(async (tab) => {  isContextMenuCreated = false;  });
 
-browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     switch (message.action) {
         case 'hideSimilatityHints':
             await removeSimilatityHints(sender.tab);
             break;
+        case "fieldsCollected":
+            await processCollectedFields(message?.fields, sender);
         case "storeRightClickedElement":
             lastRightClickedElement = message.element;
-            await browser.storage.session.set({[sessionStorageKey]: lastRightClickedElement})
+            await chrome.storage.session.set({[sessionStorageKey]: lastRightClickedElement})
             break;
         default:
             break;
     }
 });
 
-browser.contextMenus.onClicked.addListener(async (info, tab) => {
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if(tab.url && !(tab.url.startsWith('http') || tab.url.startsWith('file'))) { return;  }
     switch (info.menuItemId) {
 
@@ -60,7 +62,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
             break;
 
 /*         case "replacefieldvalue":
-            browser.tabs.sendMessage(tab.id, {action: "replaceFieldValue"});
+            chrome.tabs.sendMessage(tab.id, {action: "replaceFieldValue"});
             break; */
 
         case "showSimilarityAgain":
@@ -69,7 +71,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
 
         case "openOptions":
             try {
-                await browser.runtime.openOptionsPage();
+                await chrome.runtime.openOptionsPage();
             } catch (err) {
                 console.log(`${manifest.name ?? ''}: >>>`, err);
             }
@@ -86,44 +88,44 @@ async function createContextMenu(tab) {
 
     if(isContextMenuCreated) {  return; }
     isContextMenuCreated = true;
-    await browser.contextMenus.removeAll();
+    await chrome.contextMenus.removeAll();
 
-    browser.contextMenus.create({
+    chrome.contextMenus.create({
         id: "fillthisform",
         title: "📝 Fill the form",
         contexts: ["editable"],
         documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
-    browser.contextMenus.create({
+    chrome.contextMenus.create({
         id: "fillthisfield",
         title: "▭ Fill this field",
         contexts: ["editable"],
         documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
-    browser.contextMenus.create({
+    chrome.contextMenus.create({
         id: "clearallfields",
         title: "⌦ Clear all fields",
         contexts: ["editable"],
         documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
-    // browser.contextMenus.create({
+    // chrome.contextMenus.create({
     //     id: "replacefieldvalue",
     //     title: "(→) Replace field value",
     //     contexts: ["editable"],
     //     documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     // });
 
-    browser.contextMenus.create({
+    chrome.contextMenus.create({
         id: "showfieldmetadata",
         title: "</> Show form fields metadata",
         contexts: ["editable"],
         documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
-    browser.contextMenus.create({
+    chrome.contextMenus.create({
         id: "showSimilarityAgain",
         title: "⅏ Show similarities again",
         contexts: ["editable"],
@@ -132,17 +134,17 @@ async function createContextMenu(tab) {
 
     await addDataAsMenu(tab);
 
-    browser.contextMenus.create({
+    chrome.contextMenus.create({
         id: "separator1",
         type: "separator",
         contexts: ["all"],
         documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
-    browser.contextMenus.create({
-            id: "openOptions",
-            title: "⚙️ Options",
-            contexts: ["all"],
+    chrome.contextMenus.create({
+        id: "openOptions",
+        title: "⚙️ Options",
+        contexts: ["all"],
         documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 }
@@ -157,7 +159,7 @@ async function init(tab) {
 
     staticEmbeddings = await getStaticEmbeddings(tab);
 
-        initCompleted = true;
+    initCompleted = true;
 }
 
 async function getStaticEmbeddings(tab){
@@ -166,7 +168,7 @@ async function getStaticEmbeddings(tab){
     }
 
     try {
-        const obj = await browser.storage.local.get([staticEmbeddingsStorageKey]);
+        const obj = await chrome.storage.local.get([staticEmbeddingsStorageKey]);
         if(obj[staticEmbeddingsStorageKey] && Object.values(obj[staticEmbeddingsStorageKey]).length > 0){
             return obj[staticEmbeddingsStorageKey];
         }
@@ -177,20 +179,20 @@ async function getStaticEmbeddings(tab){
 
     const thisEmbeddings = {};
     try {
-    const formFields = Object.keys(AIFillFormOptions);
-    for (const field of formFields) {
+        const formFields = Object.keys(AIFillFormOptions);
+        for (const field of formFields) {
             const vectors = await fetchData(tab, { "input": field.toLowerCase() });
-        if (vectors && vectors.length > 0) {
+            if (vectors && vectors.length > 0) {
                 thisEmbeddings[field] = vectors;
+            }
         }
-    }
     } catch (err) {
         console.error(`${manifest?.name ?? ''} >>>`, err);
         return {};
     }
 
     try {
-        await browser.storage.local.set({[staticEmbeddingsStorageKey]: thisEmbeddings});
+        await chrome.storage.local.set({[staticEmbeddingsStorageKey]: thisEmbeddings});
     } catch (error) {
         console.error(`${manifest?.name ?? ''} >>>`, err);
         return {};
@@ -337,9 +339,9 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
         if(!lastRightClickedElement){
             const sess = browser.storage.session.get([sessionStorageKey]);
             lastRightClickedElement = sess[sessionStorageKey];
-            if(!lastRightClickedElement){
-                showUIMessage(tab, 'No element found to handle context menu!', 'error');
-                return;
+        if(!lastRightClickedElement){
+            showUIMessage(tab, 'No element found to handle context menu!', 'error');
+            return;
             }
         }
         let obj = JSON.parse(lastRightClickedElement);
@@ -364,20 +366,20 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
 }
 
 async function getOptions() {
-        const defaults ={
-            "fullName": "",
-            "firstName": "",
-            "lastName": "",
-            "email": "",
-            "tel": "",
-            "address1": "",
-            "town": "",
-            "country": ""
-        };
+      const defaults ={
+        "fullName": "",
+        "firstName": "",
+        "lastName": "",
+        "email": "",
+        "tel": "",
+        "address1": "",
+        "town": "",
+        "country": ""
+      };
 
       let options;
     try {
-        const obj = await browser.storage.sync.get([formFieldsStorageKey]);
+        const obj = await chrome.storage.sync.get([formFieldsStorageKey]);
         options = Object.assign({}, defaults, obj[formFieldsStorageKey]);
     } catch (err) {
         options = defaults;
@@ -388,14 +390,14 @@ async function getOptions() {
 }
 
 async function getLLMStudioOptions() {
-        const defaults = {
+    const defaults = {
         "port": 1234,
         "threshold": 0.5,
         "calcOnLoad": false
     };
     let lmsOptions;
     try {
-        obj = await browser.storage.sync.get([AIsettingsStorageKey]);
+        obj = await chrome.storage.sync.get([AIsettingsStorageKey]);
         lmsOptions = (Object.assign({}, defaults, obj[AIsettingsStorageKey]));
     } catch (err) {
         lmsOptions = defaults;
@@ -459,7 +461,7 @@ async function sendErrorMessage(tab, message){
     if(!tab.id){  return;  }
 
     try {
-        await browser.tabs.sendMessage(tab.id, { action: "error", value: message || 'Error!' });
+        await chrome.tabs.sendMessage(tab.id, { action: "error", value: message || 'Error!' });
     } catch (e) {
         console.error(`${manifest?.name ?? ''} >>>`, e);
     }
@@ -508,14 +510,14 @@ async function addDataAsMenu(tab){
         if(Object.keys(AIFillFormOptions).length < 1){  return;  }
     }
 
-    browser.contextMenus.create({
+    chrome.contextMenus.create({
         id: "dataseparator",
         type: "separator",
         contexts: ["editable"],
         documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
-    browser.contextMenus.create({
+    chrome.contextMenus.create({
         id: "dataset",
         title: "Insert data manually",
         contexts: ["editable"],
@@ -540,7 +542,7 @@ async function addDataAsMenu(tab){
         const menuId = key.replace(/\W/g, '').toLowerCase();
         if(createdMenus.includes(menuId)) {  continue;  }
 
-        browser.contextMenus.create({
+        chrome.contextMenus.create({
             id: menuId,
             parentId: "dataset",
             title: `☛ ${key} ( ${value} )`,
@@ -554,7 +556,7 @@ async function addDataAsMenu(tab){
 async function getCurrentTab() {
     let queryOptions = { active: true, lastFocusedWindow: true };
     // `tab` will either be a `tabs.Tab` instance or `undefined`.
-    let [tab] = await browser.tabs.query(queryOptions);
+    let [tab] = await chrome.tabs.query(queryOptions);
 
     return tab;
 }
@@ -570,7 +572,7 @@ async function fillInputsWithProposedValues(data, tab){
     }
 
     try {
-       const res = await browser.scripting.executeScript({
+       const res = await chrome.scripting.executeScript({
             target: { tabId: tab.id, frameIds: [data.frameId] },
             func: (data) => fillFormWithProposedValues(data?.result), // fillFieldsWithProposalValues(data),
             args: [data]
@@ -591,17 +593,6 @@ async function executeFormFillRequest(info, tab){
                 return collectInputFields(document);
             }
         });
-
-    if(!Array.isArray(res)) {  res = [res];  }
-
-    for (let i = 0; i < res.length; i++) {
-        if(!res[i]?.result || res[i].result.length < 1){  continue;  }
-        const filledInputs = await processForm(res[i].result, tab);
-        res[i].result = filledInputs;
-        res[i].frmeId = info.frameId;
-
-        await fillInputsWithProposedValues(res[i], tab);
-        }
     } catch (err) {
         console.error(`${manifest?.name ?? ''} >>>`, err);
         console.log(`${manifest.name ?? ''}: fields >>>`, res);
@@ -609,9 +600,31 @@ async function executeFormFillRequest(info, tab){
     }
 }
 
+async function processCollectedFields(fields, sender){
+    if(!fields || fields.length < 1){
+        return;
+    }
+
+    let res;
+    try {
+        res = JSON.parse(fields);
+    } catch (e) {
+        console.error(`${manifest.name ?? ''}: parsing fields json >>>`, e);
+        return;
+    }
+
+    if(!res){  return;  }
+    const tab = sender.tab;
+    if(!Array.isArray(res)) {  res = [res];  }
+
+    const filledInputs = await processForm(res, tab);
+
+    await fillInputsWithProposedValues({ "result": filledInputs, "frameId": sender.frameId }, tab);
+}
+
 async function showSimilarityAgain(info, tab) {
     try {
-        await browser.scripting.executeScript({
+        await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },
             func: () => { showCalculatedSimilarityAgain(); }
         });
@@ -622,7 +635,7 @@ async function showSimilarityAgain(info, tab) {
 
 async function removeSimilatityHints(tab) {
     try {
-        await browser.scripting.executeScript({
+        await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },
             func: () => { hideSimilatityHints(); }
         });
@@ -633,7 +646,7 @@ async function removeSimilatityHints(tab) {
 
 async function clearAllFieldValues(info, tab) {
     try {
-        await browser.scripting.executeScript({
+        await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },
             func: () => { clearAllFields(); }
         });
@@ -644,7 +657,7 @@ async function clearAllFieldValues(info, tab) {
 
 async function showUIMessage(tab, message, type = '') {
     try {
-        await browser.scripting.executeScript({
+        await chrome.scripting.executeScript({
             target: { tabId: tab.id, frameIds: [0] },
             func: (message, type) => { showMessage(message, type); },
             args: [message, type]
@@ -656,7 +669,7 @@ async function showUIMessage(tab, message, type = '') {
 
 async function showFieldAttributesMetadata(info, tab) {
     try {
-        await browser.scripting.executeScript({
+        await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },
             func: () => { showFieldsMetadata(); }
         });

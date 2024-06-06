@@ -2,4 +2,5 @@
 log.*
 *.log
 url2check.txt
-ff_ext/*
+*.bak
+*.bak/*

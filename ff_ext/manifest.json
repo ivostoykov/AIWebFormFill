@@ -1,39 +1,52 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "AI Form Fill Helper",
-  "version": "1.5.87",
-  "description": "Facilitates filling web forms using local AI.",
-  "icons": {
-    "48": "img/icon48.png"
-  },
-  "options_ui": {
-    "page": "options.html",
-    "open_in_tab": true
-  },
+  "version": "1.12.47",
   "permissions": [
     "activeTab",
-    "tabs",
     "contextMenus",
     "storage",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
     "http://localhost/*"
   ],
   "background": {
     "scripts": [
       "background.js"
-    ],
-    "persistent": false
+    ]
   },
+  "options_page": "options.html",
   "content_scripts": [
     {
       "matches": [
-        "*://*/*"
+        "<all_urls>"
       ],
+      "all_frames": true,
       "js": [
-        "content-script.js"
+        "content.js",
+        "js/field.js"
       ],
-      "all_frames": true
+      "run_at": "document_start"
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "img/*.svg"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "action": {},
+  "icons": {
+    "16": "img/icon16.png",
+    "48": "img/icon48.png",
+    "128": "img/icon128.png"
+  },
   "browser_specific_settings": {
     "gecko": {
       "id": "ask.ivo@gmail.com",

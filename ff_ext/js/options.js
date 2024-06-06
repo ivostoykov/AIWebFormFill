@@ -1,4 +1,8 @@
-var formFields = {
+const formFieldsStorageKey = "AIFillForm";
+const AIsettingsStarageKey = "settings";
+const staticEmbeddingsStorageKey = "staticEmbeddings";
+
+var defaultFormFields = {
     "fullName": "",
     "firstName": "",
     "lastName": "",
@@ -9,16 +13,29 @@ var formFields = {
     "country": ""
 };
 
+var defaultSettings = {
+    "port": 1234,
+    "threshold": 0.5,
+    "calcOnLoad": false
+};
+
 document.addEventListener("DOMContentLoaded", () => {
-    const manifest = browser.runtime.getManifest();
+    const manifest = chrome.runtime.getManifest();
+    document.querySelector('span.options-title').textContent = manifest.name;
     document.querySelector('span.js-version').textContent = `version: ${manifest.version || '???'}`;
     const jsonInput = document.getElementById("jsonInput");
     const messageRibbon = document.getElementById("message-ribbon");
 
     document.querySelector(".save").addEventListener("click", async (e) => {
         try {
-            const userInput = JSON.parse(jsonInput.value); // This will throw an error if the JSON is not valid
-            await browser.storage.sync.set({"AIFillForm": userInput});
+            const userInput = JSON.parse(jsonInput.value);
+            var settingValues = {};
+            document.querySelectorAll('input[type="number"]').forEach(el => settingValues[el.id] = el.value );
+            await chrome.storage.sync.set({
+                [formFieldsStorageKey]: userInput,
+                [AIsettingsStarageKey]: settingValues
+            });
+            await chrome.storage.local.remove([staticEmbeddingsStorageKey]);
             showMessage("Settings saved successfully!", "success");
         } catch (error) {
             showMessage("Invalid JSON: " + error.message, "error");
@@ -26,19 +43,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.querySelector(".cancel").addEventListener("click", (e) => {
-        document.getElementById('jsonInput').value = JSON.stringify(formFields, null, 4);
+        document.getElementById('jsonInput').value = JSON.stringify(defaultFormFields, null, 4);
     });
-
 
     function showMessage(msg, type) {
         messageRibbon.textContent = msg;
-        const styles = ["success", "error", "info", "warning"];
-        if (!styles.includes(type)) {
+        const styles = ["success", "error", "info", "warning"]
+        if(!styles.includes(type)){
             type = "info";
         }
 
         messageRibbon.className = `message-ribbon ${type}`;
-        messageRibbon.classList.remove("invisible");
 
         setTimeout(() => {
             messageRibbon.classList.add("invisible");
@@ -47,11 +62,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function loadSettings() {
         try {
-            const obj = await browser.storage.sync.get("AIFillForm");
-            const items = obj.AIFillForm || formFields;
+            const obj = await chrome.storage.sync.get([formFieldsStorageKey, AIsettingsStarageKey]);
+            const items = Object.assign({}, defaultFormFields, obj[formFieldsStorageKey]);
+            const settings = Object.assign({}, defaultSettings, obj[AIsettingsStarageKey]);
             jsonInput.value = JSON.stringify(items, null, 4);
-        } catch (error) {
-            showMessage("Failed to load settings: " + error.message, "error");
+            for (const [key, value] of Object.entries(settings)) {
+                const el = document.getElementById(key);
+                if (el) {
+                    el.value = value;
+                }
+            }
+        } catch (e) {
+            console.error(`>>> ${manifest?.name ?? ''}`, e.message, e);
+            showMessage("Failed to load settings: " + e.message, "error");
         }
     }
 

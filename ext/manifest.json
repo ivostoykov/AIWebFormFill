@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "AI Form Fill Helper",
-  "version": "1.5.87",
+  "version": "1.12.47",
   "permissions": [
     "activeTab",
     "contextMenus",
-    "storage"
+    "storage",
+    "scripting"
   ],
   "host_permissions": [
-    "*://*/*"
+    "http://localhost/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -21,7 +22,8 @@
       ],
       "all_frames": true,
       "js": [
-        "content.js"
+        "content.js",
+        "js/field.js"
       ],
       "run_at": "document_start"
     }
@@ -29,10 +31,10 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "form-filler-element.js"
+        "img/*.svg"
       ],
       "matches": [
-        "http://localhost/*"
+        "<all_urls>"
       ]
     }
   ],

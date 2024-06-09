@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI Form Fill Helper",
-  "version": "1.12.47",
+  "version": "1.14.82",
   "permissions": [
     "activeTab",
     "contextMenus",
@@ -9,7 +9,8 @@
     "scripting"
   ],
   "host_permissions": [
-    "http://localhost/*"
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js"

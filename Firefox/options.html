@@ -13,22 +13,34 @@
     <hr/>
     <main class="container">
         <section class="main">
+            <div class="help-container">
+                <img id="colseHelp" src="img/close.svg" alt="Close" title="Close" class="help-close">
+                <h2 class="help-title"></h2>
+                <hr>
+                <p class="help-content"></p>
+            </div>
             <form id="theForm">
                 <div class="form-container">
                     <div class="row">
                         <input class="numeric-settings" type="number" name="theshold" id="threshold" placeholder="value between 0 and 1" min="0" max="1" step="0.1">
                         <label class="field-label" for="threshold">Probability threshold</label>
+                        <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
                     </div>
                     <div class="row">
                         <input class="numeric-settings" type="number" name="port" id="port" placeholder="value between 1 and 65535" min="1" max="65535" step="1">
                         <label class="field-label" for="threshold">Localhost port</label>
+                        <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
                     </div>
                     <div class="row">
                         <input class="chck-box" type="checkbox" name="calcOnLoad" id="calcOnLoad" />
-                        <label class="field-label" for="calcOnLoad">Calculate similarities on load</label>
+                        <label class="field-label" for="calcOnLoad">Calculate similarities on focus</label>
+                        <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
                     </div>
                     <div class="col">
-                        <label for="jsonInput" class="block">Form Fields Values</label>
+                        <div class="row">
+                            <label for="jsonInput" class="block col-label">Form Fields Values</label>
+                            <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
+                        </div>
                         <textarea id="jsonInput" rows="10" placeholder="Enter settings in JSON format..."></textarea>
                     </div>
                     <div class="form-buttons">
@@ -42,5 +54,42 @@
 
     </main>
     <script src="js/options.js"></script>
+    <template id="localPortHelpTemplate">
+        <div>
+            <p><a href="https://en.wikipedia.org/wiki/Localhost">Read about localhost if needed</a></p>
+            <p><a href="https://en.wikipedia.org/wiki/Port_(computer_networking)">Read about localhost's port</a></p>
+            <p>If you're useing LM Studio <a href="https://lmstudio.ai/docs/local-server">here</a> is a bit more technical information</p>
+            <p>Usually the application that provided the service should have comprehensive documentation how to set up the environment.
+                Once done, enter here that port your preferable application is useing. The value is required and its default vaue is 1234.</p>
+        </div>
+    </template>
+    <template id="probabilityHelpTemplate">
+        <div>
+            <p><a href="https://www.ibm.com/topics/word-embeddings">Read comprehensive information on the topic.</a></p>
+            <p>Simply put an calculated comparison below this value will be considered as invalid or not a match.</p>
+            <p> The lower the value, the bigger will be the tollerance. A grater value will search for a closer and more strict match.</p>
+            <p>You may experiment to find the best match for you.</p>
+        </div>
+    </template>
+    <template id="calcSimilaritiesOnFocus">
+        <div>
+            <p>When a field receives focus, similarities will be calculated if this checkbox is checked.</p>
+            <p>If similarities are calculated, a suitable value will be proposed, which could be further accepted or ignored.</p>
+            <p>When checked, this box enables automatic similarity calculation and suggestion on field focus, mimicking the behavior of the 'Fill this field' context menu.</p>
+        </div>
+    </template>
+    <template id="formFieldValuesHelp">
+        <div>
+            <p>These are the values that will be used to fill a form.</p>
+            <p>AAll values are stored in JSON format (look <a href="https://en.wikipedia.org/wiki/JSON" title="Wikipedia">here</a> and
+                <a href="https://www.w3schools.com/whatis/whatis_json.asp" title="W3Schools">here</a> for details).
+                    In JSON, the left side (keys) represents the form fields, while the right side stores the corresponding values you want to fill those fields with.</p>
+                <p>Both left and right sides must be surrounded by single or double quotes.</p>
+                <p><b>Note:</b>Duplication might be needed for fields with distinct names/labels but the same expected value.</p>
+                <p>For instance: <i>post code</i> and <i>zip</i> won't be recognised perhaps and requiring the same value, while <i>post code</i> and <i>zip code</i>
+                    will be treated as similar and won't be necessary to add another key/value pair.
+                </p>
+        </div>
+    </template>
 </body>
 </html>

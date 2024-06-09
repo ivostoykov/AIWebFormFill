@@ -74,6 +74,7 @@ button {
     gap: 10px;
     margin-bottom: 20px;
     padding: 0 1rem;
+    align-items: center;
 }
 
 .chck-box{
@@ -87,10 +88,14 @@ button {
 
 .col {
     display: flex;
-    gap: 10px;
+    /* gap: 10px; */
     margin-bottom: 20px;
     padding: 0 1rem;
     flex-direction: column;
+}
+
+.col-label {
+    margin-left: -1rem; /* eliminate row padding */
 }
 
 .on-right {
@@ -103,6 +108,55 @@ textarea {
     font-family: 'Courier New', monospace;
     line-height: 1.5;
     font-size: 1rem;
+}
+
+.help-title {
+    padding-top: 15px;
+}
+
+.help-content {
+    text-align: left;
+    padding: 0 5px 0 8px;
+}
+
+.help-close{
+    display: inline-flex;
+    width: 22px;
+    height: auto;
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    cursor: pointer;
+}
+
+.help-icon {
+    width: 24px;
+    height: auto;
+    display: inline-block;
+    cursor: pointer;
+}
+
+/* Help */
+.help-container{
+    position: absolute;
+    border: 6px double blue;
+    right: -35%;
+    top: 0;
+    height: 98%;
+    width: 30%;
+    z-index: 100;
+    background-color: #fff;
+    opacity: 0;
+    transition: right 0.75s ease, opacity 0.75s ease;
+}
+
+.help-container.active {
+    right: 0;
+    opacity: 1;
+}
+
+.help-container hr {
+    width: 96%;
 }
 
 /* General */

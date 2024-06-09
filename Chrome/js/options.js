@@ -26,11 +26,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const jsonInput = document.getElementById("jsonInput");
     const messageRibbon = document.getElementById("message-ribbon");
 
+    const helpContainer = document.querySelector('div.help-container');
+    document.getElementById('colseHelp').addEventListener('click', e => helpContainer.classList.remove('active'));
+    const helpIcons = document.querySelectorAll('img.help-icon');
+    helpIcons.forEach(i => i.addEventListener('click', helpClicked));
+
     document.querySelector(".save").addEventListener("click", async (e) => {
         try {
             const userInput = JSON.parse(jsonInput.value);
             var settingValues = {};
             document.querySelectorAll('input[type="number"]').forEach(el => settingValues[el.id] = el.value );
+            document.querySelectorAll('input[type="checkbox"]').forEach(el => settingValues[el.id] = el.checked );
             await chrome.storage.sync.set({
                 [formFieldsStorageKey]: userInput,
                 [AIsettingsStarageKey]: settingValues
@@ -69,7 +75,11 @@ document.addEventListener("DOMContentLoaded", () => {
             for (const [key, value] of Object.entries(settings)) {
                 const el = document.getElementById(key);
                 if (el) {
-                    el.value = value;
+                    if (el.type === 'checkbox') {
+                        el.checked = value;
+                    } else {
+                        el.value = value;
+                    }
                 }
             }
         } catch (e) {
@@ -79,4 +89,42 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     loadSettings();
+
+    function helpClicked(e){
+        const label = e.target.parentElement.querySelector('label');
+
+        switch(label.textContent){
+            case "Localhost port":
+                setHelpContent('#localPortHelpTemplate', label);
+                break;
+            case "Probability threshold":
+                setHelpContent('#probabilityHelpTemplate', label);
+                break;
+            case "Calculate similarities on focus":
+                setHelpContent('#calcSimilaritiesOnFocus', label);
+                break;
+            case "Form Fields Values":
+                setHelpContent('#formFieldValuesHelp', label);
+                break;
+        }
+
+        if(!helpContainer.classList.contains('active')){
+            helpContainer.classList.add('active');
+        }
+    }
+
+    function setHelpContent(template, label){
+        const helpContainer = document.querySelector('div.help-container');
+        const helpContent = helpContainer.querySelector('p.help-content');
+        helpContent.replaceChildren();
+
+        if(!template)  {  return;  }
+
+        helpContainer.querySelector('.help-title').textContent = label.textContent;
+        const content = document.querySelector(template)?.content?.firstElementChild?.cloneNode(true);
+
+        if(content && helpContent){
+            helpContent.appendChild(content);
+        }
+    }
 });

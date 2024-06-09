@@ -1,33 +1,65 @@
 const manifest = chrome.runtime.getManifest();
+const AIsettingsStorageKey = "settings";
 var _field;
 var _AiFillTarget = {};
 var similarityInfo = [];
+var AIHelperSettings = {};
 
 if (document.readyState !== 'loading') {
   setListner();
 } else {
   document.addEventListener('DOMContentLoaded', function () {
-      setListner();
+    setListner();
   });
 }
 
 function setListner() {
-  document.addEventListener('contextmenu', function(event) {
+  getLLMStudioOptions()
+  .then(() => {
+    if(AIHelperSettings?.calcOnLoad) {
+      chrome.runtime.sendMessage({ action: 'toggleAutoProposals', autoProposalStatusChanged: true });
+    }
+  })
+  .catch(e => {console.log('>>>', e)});
+
+  document.addEventListener('contextmenu', function (event) {
     _field = event.target;
     let attr = getThisField(event.target);
     chrome.runtime.sendMessage({ action: 'storeRightClickedElement', element: JSON.stringify([attr]) });
   }, true);
+
+}
+
+async function getLLMStudioOptions() {
+  const defaults = {
+    "port": 1234,
+    "threshold": 0.5,
+    "calcOnLoad": false
+  };
+
+  try {
+    const obj = await chrome.storage.sync.get([AIsettingsStorageKey])
+    AIHelperSettings = (Object.assign({}, defaults, obj[AIsettingsStorageKey]));
+  } catch (err) {
+    AIHelperSettings = defaults;
+    consnole.error('>>>', err);
+  }
 }
 
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  if(!request?.action){  return;  }   // Chrome opens context menu on double click and on 1st click there is not information about the target
+  if (!request?.action) { return; }   // Chrome opens context menu on double click and on 1st click there is not information about the target
 
   switch (request.action) {
 
     case "replaceFieldValue":
-      if (!_field) {  return false;  }
+      if (!_field) { return false; }
 
       replaceFieldValue(_field);
+      break;
+
+    case "autoProposalStatusChanged":
+      AIHelperSettings['calcOnLoad'] = request?.calcOnLoad;
+      chrome.runtime.sendMessage({ action: 'toggleAutoProposals', autoProposalStatusChanged: request?.calcOnLoad });
       break;
 
     default:
@@ -40,7 +72,7 @@ function isValidRequestValue(requestValue) {
   return Array.isArray(requestValue) || requestValue instanceof Object ? requestValue : false;
 }
 
-function hideSimilatityHints(/* hints */){
+function hideSimilatityHints(/* hints */) {
   document.querySelectorAll('.js-similarity-hint')?.forEach(hint => hint.parentNode.removeChild(hint));
 }
 
@@ -55,9 +87,9 @@ function showSimilarityHint(field, similarity, duration = 4000) {
   hint.style.top = `${window.scrollY + rect.top - hint.offsetHeight / 2}px`; // 5px above the input
   hint.style.left = `${window.scrollX + rect.left + rect.width / 2}px`;
   hint.style.visibility = 'visible';
-  similarityInfo.push({"field": field, "similarity": similarity});
+  similarityInfo.push({ "field": field, "similarity": similarity });
 
-  if(duration > 0) {
+  if (duration > 0) {
     setTimeout(() => {
       hint.style.opacity = '0';
       setTimeout(() => {
@@ -163,7 +195,7 @@ function getPopup() {
   const okButton = document.createElement('button');
   okButton.textContent = 'OK';
   okButton.classList.add('dialog-button');
-  okButton.addEventListener('click', () => popup.remove() );
+  okButton.addEventListener('click', () => popup.remove());
   popup.appendChild(okButton);
 
   window.top.document.body.appendChild(popup);
@@ -195,8 +227,8 @@ function showMessage(message, type = "info") {
   }
 
   var popup = getPopup();
-  if(!popup){
-    setTimeout(() => {showMessage(`${manifest.name}: ${message}`, type)}, 1000);
+  if (!popup) {
+    setTimeout(() => { showMessage(`${manifest.name}: ${message}`, type) }, 1000);
     return;
   }
 
@@ -368,14 +400,14 @@ function replaceFieldValue(field) {
   };
 }
 
-function showCalculatedSimilarityAgain(){
+function showCalculatedSimilarityAgain() {
   var hints = [];
   similarityInfo.forEach(el => {
     const hint = showSimilarityHint(el.field, el.similarity, 0);
-    if(hint){  hints.push(hint);  }
+    if (hint) { hints.push(hint); }
   });
 
-  if(window !== window.top){  return;  }
+  if (window !== window.top) { return; }
 
   const hideButton = document.createElement('button');
   hideButton.textContent = "Hide similarities";

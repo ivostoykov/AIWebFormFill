@@ -1,7 +1,26 @@
 if(!manifest) {  const manifest = chrome.runtime.getManifest();  }
 
-function collectInputFields(doc) {
+function setAutoSimilarityProposalOn(doc, isAuto = false) {
+    if (!doc) { doc = document; }
+    let inputs = Array.from(doc.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"], textarea'));
+    if (!inputs) { return; }
+    for (let i = 0; i < inputs.length; i++) {
+        const input = inputs[i];
+        if (isAuto) {
+            input.addEventListener('keydown', applyProposal);
+            input.addEventListener('focus', handleInputFocusForAutoProposal);
+            // input.addEventListener('blur', cleanAutoProposal);
+        } else {
+            input.removeEventListener('keydown', applyProposal);
+            input.removeEventListener('focus', handleInputFocusForAutoProposal);
+            input.removeEventListener('blur', cleanAutoProposal);
+        }
+    }
+}
+
+function collectInputFields(doc, callbackAction) {
     if (!doc) {  doc = document;  }
+    if(!callbackAction){  callbackAction = 'fieldsCollected';  }
     var inputFields = [];
     let inputs = Array.from(doc.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"], textarea'));
     for (let i = 0, l = inputs.length; i < l; i++) {
@@ -10,11 +29,12 @@ function collectInputFields(doc) {
         }
     }
 
-    chrome.runtime.sendMessage({ action: 'fieldsCollected', fields: JSON.stringify(inputFields) });
+    chrome.runtime.sendMessage({ action: callbackAction, fields: JSON.stringify(inputFields) });
 }
 
 function getThisField(field) {
-    const attr2ignore = ['style', 'placeholder', 'required', 'maxlength', 'aria-required', 'autocomplete', 'spellcheck', 'size'];
+    const attr2ignore = ['style', 'placeholder', 'required', 'maxlength', 'aria-required', 'autocomplete',
+        'spellcheck', 'size', 'autocapitalize', 'autocorrect', 'autofocus'];
     let selector = getJSPath(field);
     let fieldData = {};
     const tag = field.tagName.toLowerCase();
@@ -39,6 +59,7 @@ function getThisField(field) {
     for (let i = 0, l = field.attributes.length; i < l; i++) {
         const attr = field.attributes[i];
         if (attr2ignore.includes(attr.name)) { continue; }
+        if(attr.name.startsWith('on')) { continue; }
         fieldData[tag][attr.name] = attr.value;
     }
 
@@ -211,4 +232,175 @@ function clearAllFields() {
     inputs.forEach(el => {
         el.value = '';
     });
+}
+
+// Similarity Proposals
+function getProposalStyle(){
+    const proposalStyle = document.createElement('style');
+    proposalStyle.textContent = `
+    .proposal-container {
+        position: absolute;
+        border: 1px solid gray;
+        background-color: #fffbcb;
+        width: max-content;
+        height: 30px;
+        align-items: center;
+        padding: .5em;
+        z-index: 999999;
+    }
+
+    .proposal-btn {
+        font-size: 1.3rem;
+        cursor: pointer;
+        display: inline-block;
+        padding: 0 5px;
+    }
+
+    .prop-value {
+        min-width: 50px;
+        display: inline-block;
+    }`;
+
+    return proposalStyle;
+}
+
+function cleanAutoProposal(e){
+    const existingProposal = document.querySelector('#proposal');
+    if(!existingProposal){  return;  }
+    if (existingProposal?.contains(e?.relatedTarget)) {
+        return;
+    }
+    if (existingProposal) { existingProposal.remove(); }
+}
+
+function getAutoProposalElement(proposalText){
+    if (!document.body) {
+        return null;
+    }
+
+    const id = 'proposal';
+    if (document.getElementById(id)) { cleanAutoProposal(); }
+    const proposal = document.createElement('div');
+    proposal.id = id;
+    proposal.appendChild(getProposalStyle());
+    proposal.classList.add('proposal-container');
+
+    const children = [
+        {id:"pasteProposal", class:"proposal-btn", title: "Replace proposal", text: '⇽'},
+        {id:"appendProposal", class: "proposal-btn", title:"Append proposal", text: '⤶'},
+        {id:"ignoreProposal", class: "proposal-btn", title:"Ignore proposal", text: '⨉'},
+        {id:"proposalValue", class: "prop-value", text: proposalText}
+    ];
+    for (let i = 0; i < children.length; i++) {
+        const el = children[i];
+        let child = document.createElement('div');
+        for (const [key, value] of Object.entries(el)) {
+            switch (key) {
+                case 'class':
+                    child.classList.add(value);
+                    break;
+                case 'text':
+                    child.textContent = value ?? '';
+                    break;
+                default:
+                    child[key] = value;
+                    break;
+            }
+        }
+        proposal.appendChild(child);
+    }
+
+    return proposal;
+}
+
+function setAutoProposalPosition(target, proposal){
+    let rect = target.getBoundingClientRect();
+    const proposalTop = window.scrollY + rect.top;
+    const proposalLeft = window.scrollX + rect.left + rect.width + 2;
+
+    proposal.style.top = `${proposalTop}px`;
+    proposal.style.left = `${proposalLeft}px`;
+    rect = proposal.getBoundingClientRect()
+}
+
+function handleInputFocusForAutoProposal(e) {
+    cleanAutoProposal();
+    let attr = getThisField(e.target);
+    chrome.runtime.sendMessage({ action: 'fillAutoProposal', element: JSON.stringify([attr]) });
+}
+
+function showProposal(el){
+    if(document.getElementById('proposal')){  return;  }
+    if(!el){  return;  }
+    if(!AIHelperSettings?.calcOnLoad){  return;  }
+    if(Array.isArray(el) && el.length > 0){  el = el[0];  }
+
+    let data = el?.data;
+    if(el?.data){  delete el?.data;  }
+    if(typeof(data) === 'string'){
+        try {
+            data = JSON.parse(data);
+        } catch (e) {
+            console.log(`>>> ${manifest?.name ?? ''} - data`, el);
+            console.error(`>>> ${manifest?.name ?? ''}`, e);
+            return;
+        }
+    }
+
+    const field = Object.keys(el)[0] ?? '';
+    if(!field){  return;  }
+    let target = findMatchingElement(el);
+    if(!target){  return;  }
+
+    let proposal = getAutoProposalElement(data.closest);
+    if(proposal){
+        setAutoProposalPosition(target, proposal);
+        document.body.appendChild(proposal);
+    }
+
+    proposal.querySelector('#pasteProposal').addEventListener('mousedown', (e) => {  handlePasteAutoProposal(e, target);  });
+    proposal.querySelector('#appendProposal').addEventListener('mousedown', (e) => {  handlePasteAutoProposal(e, target);  });
+    proposal.querySelector('#ignoreProposal').addEventListener('click', (e) => {handleIgnoreAutoProposal(e);  });
+}
+
+function handlePasteAutoProposal(e, target) {
+    const propValue = e.target.parentElement.querySelector('div.prop-value').textContent;
+    if(!target){  return;  }
+
+    const newValue = `${e.target.id === 'pasteProposal' ? '' : target.value} ${propValue}`.trim();
+    target.value = newValue;
+}
+
+function handleIgnoreAutoProposal(e) {
+    e.target.closest('div#proposal').remove();
+}
+
+function applyProposal(e) {
+    if (!e.ctrlKey || !e.shiftKey /* !e.altKey */) {  return;  }
+
+    switch (e.key) {
+        case 'ArrowLeft':
+        case 'ArrowRight':
+            applyPasteProposal(e);
+            break;
+        case 'Enter':
+            chrome.runtime.sendMessage({ action: 'fillthisform' });
+            break;
+    }
+}
+
+function applyPasteProposal(e){
+    const proposal = document.getElementById('proposal');
+    if(!proposal){  return;  }
+
+    const pasteBtn = proposal.querySelector('#pasteProposal');
+    if(!pasteBtn) {  return;  }
+
+    var mousedownEvent = new MouseEvent('mousedown', {
+        'view': window,
+        'bubbles': true,
+        'cancelable': true
+    });
+    pasteBtn.dispatchEvent(mousedownEvent);
+    cleanAutoProposal();
 }

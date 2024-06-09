@@ -239,7 +239,7 @@ function getProposalStyle(){
     const proposalStyle = document.createElement('style');
     proposalStyle.textContent = `
     .proposal-container {
-        position: fixed;
+        position: absolute;
         border: 1px solid gray;
         background-color: #fffbcb;
         width: max-content;

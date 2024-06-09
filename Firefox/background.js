@@ -26,16 +26,36 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 chrome.tabs.onCreated.addListener(async (tab) => {  isContextMenuCreated = false;  });
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+    if(Object.keys(AIHelperSettings).length < 1){ await init();  }
+
     switch (message.action) {
+
         case 'hideSimilatityHints':
             await removeSimilatityHints(sender.tab);
             break;
+
         case "fieldsCollected":
-            await processCollectedFields(message?.fields, sender);
+            await processCollectedFields(message.fields, sender);
+            break;
+
+        case "fillAutoProposal":
+            await setProposalValue(message.element, sender.tab);
+            break;
+
+        case "toggleAutoProposals":
+            AIHelperSettings.calcOnLoad = message?.autoProposalStatusChanged;
+            await execAutoSimilarityProposals(message, sender);
+            break;
+
         case "storeRightClickedElement":
             lastRightClickedElement = message.element;
             await chrome.storage.session.set({[sessionStorageKey]: lastRightClickedElement})
             break;
+
+        case "fillthisform":
+            await executeFormFillRequest(message, sender.tab, 'fieldsCollected');
+            break;
+
         default:
             break;
     }
@@ -45,8 +65,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if(tab.url && !(tab.url.startsWith('http') || tab.url.startsWith('file'))) { return;  }
     switch (info.menuItemId) {
 
+        case "autoProposal":
+            await toggleAutoProposal(info, tab);
+            break;
+
         case "fillthisform":
-            await executeFormFillRequest(info, tab)
+            await executeFormFillRequest(info, tab, 'fieldsCollected');
             break;
 
         case "fillthisfield":
@@ -86,67 +110,83 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 async function createContextMenu(tab) {
 
-    if(isContextMenuCreated) {  return; }
+    if (isContextMenuCreated) { return; }
     isContextMenuCreated = true;
-    await chrome.contextMenus.removeAll();
+    try {
+        await chrome.contextMenus.removeAll();
 
-    chrome.contextMenus.create({
-        id: "fillthisform",
-        title: "📝 Fill the form",
-        contexts: ["editable"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
-    });
+        chrome.contextMenus.create({
+            id: "fillthisform",
+            title: "📝 Fill the form",
+            contexts: ["editable"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
 
-    chrome.contextMenus.create({
-        id: "fillthisfield",
-        title: "▭ Fill this field",
-        contexts: ["editable"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
-    });
+        chrome.contextMenus.create({
+            id: "fillthisfield",
+            title: "▭ Fill this field",
+            contexts: ["editable"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
 
-    chrome.contextMenus.create({
-        id: "clearallfields",
-        title: "⌦ Clear all fields",
-        contexts: ["editable"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
-    });
+        chrome.contextMenus.create({
+            id: "clearallfields",
+            title: "⌦ Clear all fields",
+            contexts: ["editable"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
 
-    // chrome.contextMenus.create({
-    //     id: "replacefieldvalue",
-    //     title: "(→) Replace field value",
-    //     contexts: ["editable"],
-    //     documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
-    // });
+        // chrome.contextMenus.create({
+        //     id: "replacefieldvalue",
+        //     title: "(→) Replace field value",
+        //     contexts: ["editable"],
+        //     documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        // });
 
-    chrome.contextMenus.create({
-        id: "showfieldmetadata",
-        title: "</> Show form fields metadata",
-        contexts: ["editable"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
-    });
+        chrome.contextMenus.create({
+            id: "showfieldmetadata",
+            title: "</> Show form fields metadata",
+            contexts: ["editable"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
 
-    chrome.contextMenus.create({
-        id: "showSimilarityAgain",
-        title: "⅏ Show similarities again",
-        contexts: ["editable"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
-    });
+        chrome.contextMenus.create({
+            id: "showSimilarityAgain",
+            title: "⅏ Show similarities again",
+            contexts: ["editable"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
 
-    await addDataAsMenu(tab);
+        await addDataAsMenu(tab);
 
-    chrome.contextMenus.create({
-        id: "separator1",
-        type: "separator",
-        contexts: ["all"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
-    });
+        chrome.contextMenus.create({
+            id: "separator1",
+            type: "separator",
+            contexts: ["all"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
 
-    chrome.contextMenus.create({
-        id: "openOptions",
-        title: "⚙️ Options",
-        contexts: ["all"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
-    });
+        const mElm = AIHelperSettings?.calcOnLoad ? ['≁', 'Off'] : ['∼', 'On'];
+        chrome.contextMenus.create({
+            id: "autoProposal",
+            title: `${mElm[0]} Turn auto proposals: ${mElm[1]}`,
+            contexts: ["all"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
+
+        chrome.contextMenus.create({
+            id: "openOptions",
+            title: "⚙️ Options",
+            contexts: ["all"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
+    } catch (e) {
+        console.log('>>>', e);
+        if (chrome.runtime.lastError) {
+            console.warn(">>> Context menu creation failed: ", chrome.runtime.lastError.message);
+            console.log(">>> Attempted creation by:", new Error().stack);
+        }
+    }
 }
 
 async function init(tab) {
@@ -228,6 +268,14 @@ async function getSimilarityForMultiWordLabel(label, tab){
     return bestMatches[0];
 }
 
+/**
+ *
+ * @param {*} el - the element the proposal will be generated for
+ * @param {*} tab - the tab where the element is located - this is the activeTab
+ *
+ * @returns {Object} with three elements
+ * @example: {"closest":"","similarity":0.3983276848547773,"threshold":"0.5"}
+ */
 async function getSimilarityForElemnt(el, tab){
     if(!el){  return;  }
     const mainObjKey = Object.keys(el)[0];
@@ -329,6 +377,53 @@ async function getBestKeyFor(prop, tab){
     return bestKey;
 }
 
+/**
+ * Asynchronously calculates and stores data about similarity proposal values in an array of objects.
+ *
+ * @param {Array<Object>|Object} obj - The object or array of objects to be processed. If it's not an array, it will be converted into one. Each object should have a single key-value pair where the value is the data that needs to be compared for similarity.
+ *
+ * @param {chrome.tabs.Tab} tab - The current active tab. This parameter isn't used directly within the function but might be required by some of the helper functions called in it, such as `getSimilarityForElemnt()`.
+ *
+ * The parameter ('obj') has for a key is the element's tagName, and the value is a dictionary containing the element's attributes as key-value pairs.
+ * @typedef {Object} obj
+ * @property {string} key - tagName.
+ * @property {Object} value - dictionary of attributes and their values
+ * @property {Object}obj[data] - dictionary of proposal text, similarivy level and predefined similarity threshold @see getSimilarityForElemnt
+ *
+ * @example: {
+    "input": {
+        "selector": "header.sticky.lazy-visible > div.main-content.headerTransitions > div.header-complete-top > div.majorlinksblock > form.search-form.search-desktop > div > div.search-input-container > input.search-input.autoc-input",
+        "outerHtml": "<input type=\"text\" name=\"q\" class=\"search-input autoc-input\" placeholder=\"English Dictionary\" required=\"\" value=\"test\" autocomplete=\"off\" autocorrect=\"off\" autocapitalize=\"off\" spellcheck=\"false\" onfocus=\"this.select()\" autofocus=\"\" aria-label=\"English Dictionary\">",
+        "type": "text",
+        "name": "q",
+        "class": "search-input autoc-input",
+        "value": "test",
+        "autocorrect": "off",
+        "autocapitalize": "off",
+        "autofocus": "",
+        "aria-label": "English Dictionary"
+        }
+    }
+ *
+ * @returns {Promise<Array<Object>>} A Promise that resolves to the modified input array. Each object will have an additional 'data' property containing a stringified JSON with similarity data. If no similar element is found, it will be an empty string.
+ */
+async function calculateSimilarityProposalValue(obj, tab){
+    if(!Array.isArray(obj)){  obj = [obj];  }
+    for (let i = 0; i < obj.length; i++) {
+        const elTagName = Object.keys(obj[i])?.[0] || '';
+        let data = checkForDirectMatch(obj[i][elTagName]);
+        if(data){
+            obj[i]['data'] = JSON.stringify(data);
+            continue;
+        }
+
+        data = await getSimilarityForElemnt(obj[i], tab);
+        obj[i]['data'] = JSON.stringify(data);
+    }
+
+    return obj;
+}
+
 async function getAndProcessClickedElement(tab, info, shouldProcessElement = false){
     if(!tab){
         console.error(`${manifest?.name ?? ''}: Invalid tab id (${tab?.id || '???'})`);
@@ -337,7 +432,7 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
 
     try {
         if(!lastRightClickedElement){
-            const sess = browser.storage.session.get([sessionStorageKey]);
+            const sess = chrome.storage.session.get([sessionStorageKey]);
             lastRightClickedElement = sess[sessionStorageKey];
         if(!lastRightClickedElement){
             showUIMessage(tab, 'No element found to handle context menu!', 'error');
@@ -345,18 +440,7 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
             }
         }
         let obj = JSON.parse(lastRightClickedElement);
-        if(!Array.isArray(obj)){  obj = [obj];  }
-        for (let i = 0; i < obj.length; i++) {
-            const elTagName = Object.keys(obj[i])?.[0] || '';
-            let data = checkForDirectMatch(obj[i][elTagName]);
-            if(data){
-                obj[i]['data'] = JSON.stringify(data);
-                continue;
-            }
-
-            data = await getSimilarityForElemnt(obj[i], tab);
-            obj[i]['data'] = JSON.stringify(data);
-        }
+        obj = await calculateSimilarityProposalValue(obj, tab);
 
         await fillInputsWithProposedValues({frameId: info.frameId, result: obj}, tab);
     } catch (e) {
@@ -497,6 +581,7 @@ function cosineSimilarity(vecA, vecB) {
     let normA = 0;
     let normB = 0;
     for (let i = 0; i < vecA.length; i++) {
+        if(!vecA[i] || !vecB[i]) {  break;  }
         dotProduct += vecA[i] * vecB[i];
         normA += vecA[i] * vecA[i];
         normB += vecB[i] * vecB[i];
@@ -519,7 +604,7 @@ async function addDataAsMenu(tab){
 
     chrome.contextMenus.create({
         id: "dataset",
-        title: "Insert data manually",
+        title: "⇽ Insert data manually",
         contexts: ["editable"],
         documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
@@ -545,7 +630,8 @@ async function addDataAsMenu(tab){
         chrome.contextMenus.create({
             id: menuId,
             parentId: "dataset",
-            title: `☛ ${key} ( ${value} )`,
+            title: `☛ ${value}`,
+            // title: `☛ ${key} ( ${value} )`,
             contexts: ["editable"],
             documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
@@ -584,14 +670,15 @@ async function fillInputsWithProposedValues(data, tab){
     }
 }
 
-async function executeFormFillRequest(info, tab){
+async function executeFormFillRequest(info, tab, callbackAction){
     let res;
     try {
         res = await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },
-            func: () => {
-                return collectInputFields(document);
-            }
+            func: (callbackAction) => {
+                return collectInputFields(document, callbackAction);
+            },
+            args: [callbackAction]
         });
     } catch (err) {
         console.error(`${manifest?.name ?? ''} >>>`, err);
@@ -672,6 +759,53 @@ async function showFieldAttributesMetadata(info, tab) {
         await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },
             func: () => { showFieldsMetadata(); }
+        });
+    } catch (e) {
+        console.error(`${manifest.name ?? ''}`, e)
+    }
+}
+
+async function execAutoSimilarityProposals(info, sender) {
+    if(Object.keys(AIHelperSettings).length === 0){
+        await init();
+    }
+
+    try {
+        await chrome.scripting.executeScript({
+            target: { tabId: sender.tab.id, allFrames: true },
+            func: (isAuto) => { if(typeof(setAutoSimilarityProposalOn) === 'function'){setAutoSimilarityProposalOn(document, isAuto);} },
+            args: [AIHelperSettings?.calcOnLoad]
+        });
+    } catch (e) {
+        console.error(`${manifest.name ?? ''}`, e)
+    }
+}
+
+async function toggleAutoProposal(info, tab){
+    AIHelperSettings["calcOnLoad"] = !AIHelperSettings?.calcOnLoad;
+    const mElm = AIHelperSettings?.calcOnLoad ? ['≁', 'Off'] : ['∼', 'On'];
+    const newTitle = `${mElm[0]} Turn auto proposals: ${mElm[1]}`;
+    chrome.contextMenus.update("autoProposal", { title: newTitle });
+    chrome.tabs.sendMessage(tab.id, {action: 'autoProposalStatusChanged', autoProposalStatus: AIHelperSettings?.calcOnLoad});
+}
+
+async function setProposalValue(el, tab){
+    if(typeof(el) === 'string'){
+        try {
+            el = JSON.parse(el);
+        } catch (e) {
+            console.error(`${manifest.name ?? ''}`, e);
+            return;
+        }
+    }
+
+    const prop = await calculateSimilarityProposalValue(el, tab);
+    if(!prop) {  return;  }
+    try {
+        await chrome.scripting.executeScript({
+            target: { tabId: tab.id, allFrames: true },
+            func: (elWithProposal) => { if(typeof(showProposal) === 'function'){ showProposal(elWithProposal);} },
+            args: [prop]
         });
     } catch (e) {
         console.error(`${manifest.name ?? ''}`, e)

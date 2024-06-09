@@ -26,6 +26,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 chrome.tabs.onCreated.addListener(async (tab) => {  isContextMenuCreated = false;  });
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+    if(Object.keys(AIHelperSettings).length < 1){ await init();  }
+
     switch (message.action) {
 
         case 'hideSimilatityHints':

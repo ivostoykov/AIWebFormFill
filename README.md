@@ -80,11 +80,13 @@ To fill a form properly, you have to provide some data, don't you? This is what 
 
 ### Turn auto proposal On/Off
 ![Auto Proposal](media/autoProp.png)
+
 *Note:* This will turn it `on` or `off` only until the page is changed or reloaded.
 To make the change permenant use the [Options](#options) page.
 
 ### Insert data manually
 ![alt text](media/manual.png)
+
 The [Form data](#form-data) values will be listed in this submenu, allowing to bypass the proposal and insert the value directly in the element having the focus.
 
 # Options

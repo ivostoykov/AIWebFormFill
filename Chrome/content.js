@@ -15,19 +15,34 @@ if (document.readyState !== 'loading') {
 
 function setListner() {
   getLLMStudioOptions()
-  .then(() => {
-    if(AIHelperSettings?.calcOnLoad) {
-      chrome.runtime.sendMessage({ action: 'toggleAutoProposals', autoProposalStatusChanged: true });
-    }
-  })
-  .catch(e => {console.log('>>>', e)});
+    .then(() => {
+      if (AIHelperSettings?.calcOnLoad) {
+        try {
+          if (!chrome.runtime.sendMessage) { throw new Error(`chrome.runtime.sendMessage is ${typeof (chrome?.runtime?.sendMessage)}`); }
+          chrome.runtime.sendMessage({ action: 'toggleAutoProposals', autoProposalStatusChanged: true });
+        } catch (err) {
+          if (err.message === 'Extension context invalidated.') {
+            showMessage(`${err.message}. Please reload the page.`, 'error');
+          }
+          console.log(`>>> ${manifest?.name ?? ''}`, err);
+        }
+      }
+    })
+    .catch(e => { console.log('>>>', e) });
 
   document.addEventListener('contextmenu', function (event) {
     _field = event.target;
     let attr = getThisField(event.target);
-    chrome.runtime.sendMessage({ action: 'storeRightClickedElement', element: JSON.stringify([attr]) });
+    try {
+      if (!chrome.runtime.sendMessage) { throw new Error(`chrome.runtime.sendMessage is ${typeof (chrome?.runtime?.sendMessage)}`); }
+      chrome.runtime.sendMessage({ action: 'storeRightClickedElement', element: JSON.stringify([attr]) });
+    } catch (err) {
+      if (err.message === 'Extension context invalidated.') {
+        showMessage(`${err.message}. Please reload the page.`, 'error');
+      }
+      console.log(`>>> ${manifest?.name ?? ''}`, err);
+    }
   }, true);
-
 }
 
 async function getLLMStudioOptions() {
@@ -59,7 +74,15 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
     case "autoProposalStatusChanged":
       AIHelperSettings['calcOnLoad'] = request?.calcOnLoad;
-      chrome.runtime.sendMessage({ action: 'toggleAutoProposals', autoProposalStatusChanged: request?.calcOnLoad });
+      try {
+        if (!chrome.runtime.sendMessage) { throw new Error(`chrome.runtime.sendMessage is ${typeof (chrome?.runtime?.sendMessage)}`); }
+        chrome.runtime.sendMessage({ action: 'toggleAutoProposals', autoProposalStatusChanged: request?.calcOnLoad });
+      } catch (err) {
+        if (err.message === 'Extension context invalidated.') {
+          showMessage(`${err.message}. Please reload the page.`, 'error');
+        }
+        console.log(`>>> ${manifest?.name ?? ''}`, err);
+      }
       break;
 
     default:
@@ -172,10 +195,16 @@ function getPopup() {
   popup.classList.add('modal-dialog');
   popup.appendChild(dialogStyle);
 
-  const icon = document.createElement('img');
-  icon.src = chrome.runtime.getURL('img/warning.svg')
-  icon.classList.add('dlg-icon');
-  popup.appendChild(icon);
+  try {
+      const icon = document.createElement('img');
+      icon.src = chrome.runtime.getURL('img/warning.svg')
+      icon.classList.add('dlg-icon');
+      popup.appendChild(icon);
+  } catch (err) {
+    if(err.message !== 'Extension context invalidated.'){
+      console.error(`>>> ${manifest?.name ?? ''}`, err)
+    }
+  }
 
   const title = document.createElement('div');
   title.id = 'popupTitle';
@@ -416,7 +445,15 @@ function showCalculatedSimilarityAgain() {
   document.body.appendChild(hideButton);
 
   hideButton.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: "hideSimilatityHints" });
+    try {
+      if (!chrome.runtime.sendMessage) { throw new Error(`chrome.runtime.sendMessage is ${typeof (chrome?.runtime?.sendMessage)}`); }
+      chrome.runtime.sendMessage({ action: "hideSimilatityHints" });
+    } catch (err) {
+      if (err.message === 'Extension context invalidated.') {
+        showMessage(`${err.message}. Please reload the page.`, 'error');
+      }
+      console.log(`>>> ${manifest?.name ?? ''}`, err);
+    }
     document.body.removeChild(hideButton);
   });
 }

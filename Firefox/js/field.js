@@ -9,7 +9,7 @@ function setAutoSimilarityProposalOn(doc, isAuto = false) {
         if (isAuto) {
             input.addEventListener('keydown', applyProposal);
             input.addEventListener('focus', handleInputFocusForAutoProposal);
-            // input.addEventListener('blur', cleanAutoProposal);
+            input.addEventListener('blur', cleanAutoProposal);
         } else {
             input.removeEventListener('keydown', applyProposal);
             input.removeEventListener('focus', handleInputFocusForAutoProposal);
@@ -29,7 +29,15 @@ function collectInputFields(doc, callbackAction) {
         }
     }
 
-    chrome.runtime.sendMessage({ action: callbackAction, fields: JSON.stringify(inputFields) });
+    try {
+        if(!chrome.runtime.sendMessage){  throw new Error(`chrome.runtime.sendMessage is ${typeof(chrome?.runtime?.sendMessage)}`);  }
+        chrome.runtime.sendMessage({ action: callbackAction, fields: JSON.stringify(inputFields) });
+    } catch (err) {
+        if(err.message === 'Extension context invalidated.'){
+            showMessage(`${err.message}. Please reload the page.`, 'error');
+        }
+        console.log(`>>> ${manifest?.name ?? ''}`, err);
+    }
 }
 
 function getThisField(field) {
@@ -238,15 +246,54 @@ function clearAllFields() {
 function getProposalStyle(){
     const proposalStyle = document.createElement('style');
     proposalStyle.textContent = `
+    .proposal-container:hover .icon {
+        display: none;
+    }
+
+    .proposal-container:not(:hover) .icon {
+        display: inline-block;
+        width: 100%;
+        height: 100%;
+        padding: .03rem;
+    }
+
     .proposal-container {
         position: absolute;
         border: 1px solid gray;
         background-color: #fffbcb;
-        width: max-content;
-        height: 30px;
-        align-items: center;
+        width: 0px;
+        height: 20px;
+        overflow: hidden;
+        text-align: left;
         padding: .5em;
         z-index: 999999;
+        animation: shring-width 0.3s forwards;
+        box-sizing: unset;
+    }
+
+    .proposal-container:hover{
+        animation: expand-width 0.3s forwards;
+        overflow: auto
+    }
+
+    @keyframes expand-width {
+        95% {
+            width: 200px;
+        }
+        100% {
+            height: 30px;
+            width: max-content;
+        }
+    }
+
+    @keyframes shring-width {
+        from {
+            width: 0px;
+        }
+        100% {
+            width: 20px;
+            height: 20px;
+        }
     }
 
     .proposal-btn {
@@ -286,6 +333,7 @@ function getAutoProposalElement(proposalText){
     proposal.classList.add('proposal-container');
 
     const children = [
+        {id:"flashIcon", class:"icon", title: "Show proposal", text: '⚡'},
         {id:"pasteProposal", class:"proposal-btn", title: "Replace proposal", text: '⇽'},
         {id:"appendProposal", class: "proposal-btn", title:"Append proposal", text: '⤶'},
         {id:"ignoreProposal", class: "proposal-btn", title:"Ignore proposal", text: '⨉'},
@@ -326,7 +374,15 @@ function setAutoProposalPosition(target, proposal){
 function handleInputFocusForAutoProposal(e) {
     cleanAutoProposal();
     let attr = getThisField(e.target);
-    chrome.runtime.sendMessage({ action: 'fillAutoProposal', element: JSON.stringify([attr]) });
+    try {
+        if(!chrome.runtime.sendMessage){  throw new Error(`chrome.runtime.sendMessage is ${typeof(chrome?.runtime?.sendMessage)}`);  }
+        chrome.runtime.sendMessage({ action: 'fillAutoProposal', element: JSON.stringify([attr]) });
+    } catch (err) {
+        if(err.message === 'Extension context invalidated.'){
+            showMessage(`${err.message}. Please reload the page.`, 'error');
+        }
+        console.log(`>>> ${manifest?.name ?? ''}`, err);
+    }
 }
 
 function showProposal(el){
@@ -376,7 +432,7 @@ function handleIgnoreAutoProposal(e) {
 }
 
 function applyProposal(e) {
-    if (!e.ctrlKey || !e.shiftKey /* !e.altKey */) {  return;  }
+    if (!e.ctrlKey || !e.shiftKey /* !e.altKey */) { return; }
 
     switch (e.key) {
         case 'ArrowLeft':
@@ -384,7 +440,15 @@ function applyProposal(e) {
             applyPasteProposal(e);
             break;
         case 'Enter':
-            chrome.runtime.sendMessage({ action: 'fillthisform' });
+            try {
+                if (!chrome.runtime.sendMessage) { throw new Error(`chrome.runtime.sendMessage is ${typeof (chrome?.runtime?.sendMessage)}`); }
+                chrome.runtime.sendMessage({ action: 'fillthisform' });
+            } catch (err) {
+                if (err.message === 'Extension context invalidated.') {
+                    showMessage(`${err.message}. Please reload the page.`, 'error');
+                }
+                console.log(`>>> ${manifest?.name ?? ''}`, err);
+            }
             break;
     }
 }

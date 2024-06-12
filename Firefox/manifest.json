@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI Form Fill Helper",
-  "version": "1.14.84",
+  "version": "1.15.27",
   "permissions": [
     "activeTab",
     "contextMenus",

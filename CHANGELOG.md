@@ -9,7 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.12.00] - 2024-06-05 - latest
+## [1.15.27] - 2024-06-12 - latest
+
+- Added short help in the add-on options page.
+- Added a checkbox allowing calculations to be made when the page loads.
+- If startup calculation is enabled, a proposal is shown when a suitable element receives focus.
+- Proposal will be hidden upon focus loss.
+- Added shortcut (Ctrl+Shift+Left Arrow OR Ctrl+Shift+Right Arrow) to accept the proposal (meaning to fill the element with the proposed value).
+- Added shortcut (Ctrl+Shift+Enter) to fill all suitable elements with their proposal values.
+
+
+## [1.12.00] - 2024-06-05
 
 - refactored finding out the field candidate for auto fill
 - refactored communication with the Embedding and calculation of the similarity

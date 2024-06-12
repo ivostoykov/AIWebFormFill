@@ -15,6 +15,7 @@ This one is different. It was created with privacy in mind. That means that the 
 
 However, I must issue a word of caution: avoid storing sensitive information like credit cards, passwords, etc., as any flaw in browser security may put your data at risk.
 
+#### Download Links
 ||||
 |------|------|------|
 | <img src="media/ff32.png" title="Firefox extension" alt="Firefox extension" width="32" height="32" /> | Get Firefox addon | [here](https://addons.mozilla.org/en-US/firefox/addon/ai-form-fill-helper/) |
@@ -27,7 +28,7 @@ This is not a form hacking tool, nor is it intended to be. Its purpose is solely
 
 ### The Forms
 
-Web forms are often targets of various attacks, from spammers to hackers. This leads to a constant cycle of updated attacks and defenses. Therefore, one might find forms that do not accept, block, or otherwise prevent this tool from working, and this is normal. If you encounter such issues, [report this issue here](https://github.com/ivostoykov/AIWebFormFill/issues)
+Web forms are often targets of various attacks, from spammers to hackers. This leads to a constant cycle of updated attacks and defenses. Therefore, one might find forms that do not accept, block, or otherwise prevent this tool from working, and this is normal. If you encounter such issues, [report it here](https://github.com/ivostoykov/AIWebFormFill/issues)
 
 ---
 
@@ -46,14 +47,10 @@ Once LM Studio is set, download a MiniLM gulf (ie All-MiniLM-L6-v2-Embedding-GGU
 
 ![LM Studio embeding MiniLm](media/miniLm.png)
 
-**Note:** For the moment it is expected LM Studio to use the default http port - 1234.
-
-This part is strightforward and one shouldn't encounter problems. But if any - [ask here](https://github.com/ivostoykov/AIWebFormFill/issues)
-
 ---
 
 ## Installation
-Download and install the extension from the [Chrome Web Store]((https://chromewebstore.google.com/detail/ai-form-fill-helper/hfcoicpedjbfhfiaamajpnaabjdkhjcj)) or [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-form-fill-helper/). Alternatively clone this repo and install it in Developer mode, you should know how if you take this path.
+Install the extension from the [Download Links](#download-links) section. Alternatively clone this repo and install it in Developer mode, you should know how, if you take this path.
 
 **Note:** Reload the page if you need to use it immediately on current tab.
 
@@ -81,8 +78,19 @@ It's helpful to know which fields are good for filling out. The extension will a
 
 To fill a form properly, you have to provide some data, don't you? This is what the last menu and the next section are for.
 
+### Turn auto proposal On/Off
+![Auto Proposal](media/autoProp.png)
+*Note:* This will turn it `on` or `off` only until the page is changed or reloaded.
+To make the change permenant use the [Options](#options) page.
+
+### Insert data manually
+![alt text](media/manual.png)
+The [Form data](#form-data) values will be listed in this submenu, allowing to bypass the proposal and insert the value directly in the element having the focus.
+
 # Options
 ![Extension options](media/options.png)
+
+Use circled question marks for a quick help or ask a quesion [here](https://github.com/ivostoykov/AIWebFormFill/issues).
 
 ## Form data
 

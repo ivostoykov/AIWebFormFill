@@ -21,6 +21,12 @@ However, I must issue a word of caution: avoid storing sensitive information lik
 | <img src="media/ff32.png" title="Firefox extension" alt="Firefox extension" width="32" height="32" /> | Get Firefox addon | [here](https://addons.mozilla.org/en-US/firefox/addon/ai-form-fill-helper/) |
 | <img src="media/chrome.png" title="Chrome extension" alt="Chrome extension" width="32" height="32" /> | For Chrome extension | [here](https://chromewebstore.google.com/detail/ai-form-fill-helper/hfcoicpedjbfhfiaamajpnaabjdkhjcj) |
 
+# Firefox Permission Note
+
+![Firefox permissions](media/FF_permissions.png)
+
+The latest Firefox require explicit user permision to access data. To enable this permission on you need to open burger menu (`≡`) and from there find and click `Add-ons and themes`. Locate the `AI Form Fill Helper` extension and click on the name. The middle tab is `Permissions` - click to open. Enable the `Access your data for all websites` option. Refresh the page if you had it open prior to making this change. The screenshot above shows where it is located.
+
 
 ### What this project is NOT
 

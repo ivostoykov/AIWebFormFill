@@ -61,7 +61,17 @@ Install the extension from the [Download Links](#download-links) section. Altern
 **Note:** Reload the page if you need to use it immediately on current tab.
 
 ## Usage
-Installing this extension will add a few lines to the context menu, and you'll be able to use it from there. Included in these menus are settings where you must define the values you wish to use by filling out a form.
+
+
+If `Calculate similarities on focus` (see [Options](#options) below) is enabled, then you'll see this action:
+
+![Auto Calculations](media/autoInAction.gif)
+
+To quickly fill a single field, use the shortcut key combination `Ctrl+Shift+Left Arrow` or `Ctrl+Shift+Right Arrow`.
+
+To fill the entire form at once, press `Ctrl+Shift+Enter`.
+
+Installing this extension will add a context menu, and you'll be able to use it from there. `Options` are also accessible from the context menu where you must define the values you wish to use by filling out a form. (see [Options](#options))
 
 Right-click on a form field and you will see the main context menu.
 

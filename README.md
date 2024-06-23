@@ -47,7 +47,7 @@ This extension works with a local AI. This means that you need AI installed. Als
 
 ### API server
 Probably the easier way to make all work is to use [LM Studio](https://lmstudio.ai/) (Ctrl+click to open in a new tab). Download and set it for your OS.
-This extension uses embedding endpoint so it doesn't require great resources.
+This extension uses embeddings endpoint so it doesn't require great resources.
 
 Once LM Studio is set, download a MiniLM gulf (ie All-MiniLM-L6-v2-Embedding-GGUF). You need to search for it from within LM Studio and download it from there. Once on your machine, it will appear in the embeddings model list, where you have to activate it. And you're done; you're ready to fill out some other form.
 
@@ -109,6 +109,13 @@ The [Form data](#form-data) values will be listed in this submenu, allowing to b
 ![Extension options](media/options.png)
 
 Use circled question marks for a quick help or ask a quesion [here](https://github.com/ivostoykov/AIWebFormFill/issues).
+
+## Embeddings endpoint API
+In LM Studion the full URL is given in the server log:
+
+![LMStudio endpoint](media/embeddings_endpoint.png)
+
+For other tools, like Ollama, please check their documentation.
 
 ## Form data
 

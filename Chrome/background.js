@@ -17,6 +17,36 @@ var lastRightClickedElement;
 var staticEmbeddings = {};
 var dynamicEmbeddings = {};
 
+chrome.runtime.onInstalled.addListener((details) => {
+    switch (details.reason) {
+      case chrome.runtime.OnInstalledReason.INSTALL:
+      case chrome.runtime.OnInstalledReason.UPDATE:
+        chrome.runtime.openOptionsPage();
+        break;
+    }
+});
+
+chrome.storage.onChanged.addListener(async (changes, areaName) => {
+    if (areaName !== 'sync') {  return; }
+    for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
+        if(key === "AIFillForm"){
+            AIFillFormOptions = {};
+            AIFillFormOptions = await getOptions();
+            staticEmbeddings = {}; // need to clean it, otherwise will return the existing object
+            isContextMenuCreated = false;
+        } else {
+            AIHelperSettings = await getLLMStudioOptions();
+        }
+    }
+});
+
+chrome.tabs.onActivated.addListener(async (tab) => {
+    if(!isContextMenuCreated){
+        await createContextMenu(tab);
+    }
+    staticEmbeddings = await getStaticEmbeddings(tab);
+});
+
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if(!isContextMenuCreated){
         await createContextMenu(tab);
@@ -303,12 +333,17 @@ async function getAttributeBestMatch(elAttributes, tab) {
     const keysToIterate = getKeysToIterate(Object.keys(elAttributes));
     for (let x = 0, z = keysToIterate.length; x < z; x++) {
         let attributeName = keysToIterate[x];
-        let attributeValue = elAttributes[attributeName];
-        if(!dynamicEmbeddings[attributeValue] || dynamicEmbeddings[attributeValue]?.length < 1){
-            dynamicEmbeddings[attributeValue] = await fetchData(tab, { "input": attributeValue.toLowerCase() });
-        }
+        // let attributeValue = elAttributes[attributeName];
+        let attrValues = elAttributes[attributeName].split(/[^a-zA-Z0-9]+/);
+        for (let index = 0; index < attrValues.length; index++) {
+            const attributeValue = attrValues[index];
 
-        bestMatches.push(getBestMatch(attributeValue));
+            if(!dynamicEmbeddings[attributeValue] || dynamicEmbeddings[attributeValue]?.length < 1){
+                dynamicEmbeddings[attributeValue] = await fetchData(tab, { "input": attributeValue.toLowerCase() });
+            }
+
+            bestMatches.push(getBestMatch(attributeValue));
+        }
     }
 
     if(bestMatches.length === 1){
@@ -440,7 +475,15 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
             }
         }
         let obj = JSON.parse(lastRightClickedElement);
-        obj = await calculateSimilarityProposalValue(obj, tab);
+        if(shouldProcessElement){
+            obj = await calculateSimilarityProposalValue(obj, tab)
+        } else {
+            if(!Array.isArray(obj)){  obj = [obj];  }
+            const key = Object.keys(AIFillFormOptions).find(k => k.toLowerCase() === info.menuItemId.toLowerCase());
+            const value = key ? AIFillFormOptions[key] : '';
+
+            obj[0]['data'] = JSON.stringify({"closest": value, "similarity": 1, "threshold": AIHelperSettings.threshold});
+        }
 
         await fillInputsWithProposedValues({frameId: info.frameId, result: obj}, tab);
     } catch (e) {
@@ -475,7 +518,7 @@ async function getOptions() {
 
 async function getLLMStudioOptions() {
     const defaults = {
-        "port": 1234,
+        "embeddings": [],
         "threshold": 0.5,
         "calcOnLoad": false
     };
@@ -495,11 +538,22 @@ async function fetchData(tab = null, body = {}) {
         return [];
     }
 
-    if(!AIHelperSettings || !AIHelperSettings.port){
-        await init();
+    if(!AIHelperSettings || !AIHelperSettings.embeddings){
+        AIHelperSettings = await getLLMStudioOptions();
     }
 
-    const url = `http://localhost:${AIHelperSettings?.port?.toString() || "1234"}/v1/embeddings`;
+    if(!AIHelperSettings){
+        showMessage("Please fill extension options.", "error");
+        return;
+    }
+
+    if(!AIHelperSettings.embeddings){
+        showMessage("Please fill Embeddings API endpoint in the extension options first.", "error");
+        return;
+    }
+
+    // const url = `http://localhost:${AIHelperSettings?.port?.toString() || "1234"}/v1/embeddings`;
+    const url = typeof(AIHelperSettings.embeddings) === 'string' ? AIHelperSettings.embeddings : (Array.isArray(AIHelperSettings.embeddings) ? AIHelperSettings.embeddings[0] : '');
     try {
         const response = await fetch(url, {
             method: 'POST',
@@ -710,6 +764,7 @@ async function processCollectedFields(fields, sender){
 }
 
 async function showSimilarityAgain(info, tab) {
+    if(!/^http/i.test(tab.url)){  return;  }
     try {
         await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },
@@ -721,6 +776,7 @@ async function showSimilarityAgain(info, tab) {
 }
 
 async function removeSimilatityHints(tab) {
+    if(!/^http/i.test(tab.url)){  return;  }
     try {
         await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },
@@ -732,6 +788,7 @@ async function removeSimilatityHints(tab) {
 }
 
 async function clearAllFieldValues(info, tab) {
+    if(!/^http/i.test(tab.url)){  return;  }
     try {
         await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },
@@ -743,6 +800,7 @@ async function clearAllFieldValues(info, tab) {
 }
 
 async function showUIMessage(tab, message, type = '') {
+    if(!/^http/i.test(tab.url)){  return;  }
     try {
         await chrome.scripting.executeScript({
             target: { tabId: tab.id, frameIds: [0] },
@@ -755,6 +813,7 @@ async function showUIMessage(tab, message, type = '') {
 }
 
 async function showFieldAttributesMetadata(info, tab) {
+    if(!/^http/i.test(tab.url)){  return;  }
     try {
         await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },

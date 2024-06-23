@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.15.27] - 2024-06-12 - latest
+## [1.15.65] - 2024-06-23 - latest
+
+- Fixed minor bugs in forms.
+- Enabled real-time updates for options.
+- Added extended embeddings endpoint API for containered and external use (if required).
+- Updated help section to reflect new features.
+- Streamlined direct entry pasting process.
+
+## [1.15.27] - 2024-06-12
 
 - Added short help in the add-on options page.
 - Added a checkbox allowing calculations to be made when the page loads.

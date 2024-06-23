@@ -45,6 +45,12 @@ input.numeric-settings{
     min-width: 50px;
 }
 
+input.text-settings{
+    width: 350px;
+    height: 25px;
+    min-width: 150px;
+}
+
 .field-label{
     align-content: center;
 }
@@ -80,7 +86,7 @@ button {
 .chck-box{
     width: 26px;
     text-align: left;
-    margin-right: 75px;
+    /* margin-right: 75px; */
     padding: 0;
     position: relative;
     height: 26px;

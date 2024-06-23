@@ -27,8 +27,8 @@
                         <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
                     </div>
                     <div class="row">
-                        <input class="numeric-settings" type="number" name="port" id="port" placeholder="value between 1 and 65535" min="1" max="65535" step="1">
-                        <label class="field-label" for="threshold">Localhost port</label>
+                        <input class="text-settings" type="text" name="embeddings" id="embeddings" placeholder="http://localhost:1234/v1/embeddings">
+                        <label class="field-label" for="embeddings">Embeddings API endpoint</label>
                         <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
                     </div>
                     <div class="row">
@@ -54,11 +54,11 @@
 
     </main>
     <script src="js/options.js"></script>
-    <template id="localPortHelpTemplate">
+    <template id="embeddingsHelpTemplate">
         <div>
             <p><a href="https://en.wikipedia.org/wiki/Localhost">Read about localhost if needed</a></p>
-            <p><a href="https://en.wikipedia.org/wiki/Port_(computer_networking)">Read about localhost's port</a></p>
             <p>If you're useing LM Studio <a href="https://lmstudio.ai/docs/local-server">here</a> is a bit more technical information</p>
+            <p>Alternatively any tool that uses <a href="https://platform.openai.com/docs/api-reference">OpenAI's API format</a> could be used, even external one (if it is installed as a docker image or located on another near by machine).</p>
             <p>Usually the application that provided the service should have comprehensive documentation how to set up the environment.
                 Once done, enter here that port your preferable application is useing. The value is required and its default vaue is 1234.</p>
         </div>

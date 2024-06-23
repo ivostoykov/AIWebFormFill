@@ -47,7 +47,7 @@ function setListner() {
 
 async function getLLMStudioOptions() {
   const defaults = {
-    "port": 1234,
+    "embeddings": [],
     "threshold": 0.5,
     "calcOnLoad": false
   };

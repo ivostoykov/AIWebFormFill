@@ -14,7 +14,7 @@ var defaultFormFields = {
 };
 
 var defaultSettings = {
-    "port": 1234,
+    "embeddings": [],
     "threshold": 0.5,
     "calcOnLoad": false
 };
@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const userInput = JSON.parse(jsonInput.value);
             var settingValues = {};
+            document.querySelectorAll('input[type="text"]').forEach(el => settingValues[el.id] = el.value );
             document.querySelectorAll('input[type="number"]').forEach(el => settingValues[el.id] = el.value );
             document.querySelectorAll('input[type="checkbox"]').forEach(el => settingValues[el.id] = el.checked );
             await chrome.storage.sync.set({
@@ -94,8 +95,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const label = e.target.parentElement.querySelector('label');
 
         switch(label.textContent){
-            case "Localhost port":
-                setHelpContent('#localPortHelpTemplate', label);
+            case "Embeddings API endpoint":
+                setHelpContent('#embeddingsHelpTemplate', label);
                 break;
             case "Probability threshold":
                 setHelpContent('#probabilityHelpTemplate', label);

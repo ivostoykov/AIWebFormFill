@@ -26,11 +26,33 @@
                         <label class="field-label" for="threshold">Probability threshold</label>
                         <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
                     </div>
-                    <div class="row">
-                        <input class="text-settings" type="text" name="embeddings" id="embeddings" placeholder="http://localhost:1234/v1/embeddings">
-                        <label class="field-label" for="embeddings">Embeddings API endpoint</label>
-                        <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
+                    <div class="col">
+                        <div class="row">
+                            <label class="col-label" for="embeddings">Embeddings API endpoint</label>
+                            <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
+                        </div>
+                        <div class="row row-left">
+                            <select name="embeddings" id="embeddings">
+                                <option value="">Select provider</option>
+                                <option value="http://localhost:11434/api/embeddings">Ollama</option>
+                                <option value="http://localhost:1234/v1/embeddings">LM Studio</option>
+                                <option value="http://localhost:8080/">Llamafile</option>
+                            </select>
+                            <!-- <input class="text-settings" type="text" name="embeddings" id="embeddings" placeholder="http://localhost:1234/v1/embeddings"> -->
+                            <img src="img/edit2.svg" class="model-icon-button" data-action="edit" alt="Edit current" title="Edit current">
+                            <img src="img/add.svg" class="model-icon-button" data-action="add" alt="Add to list" title="Add to list">
+                            <img src="img/remove.svg" class="model-icon-button" data-action="remove" alt="Remove from list" title="Remove from list">
+                            <img src="img/remove-all.svg" class="model-icon-button" data-action="removeAll" alt="Remove all" title="Clear the list">
+                            <img src="img/a-z.svg" class="model-icon-button" data-action="asc" alt="Soft Asc" title="Soft list Asc">
+                            <img src="img/z-a.svg" class="model-icon-button" data-action="desc" alt="Soft Desc" title="Soft List Desc">
+                        </div>
                     </div>
+
+                    <div id="modelsRow" class="row obscured">
+                        <select name="modelList" id="modelList"></select>
+                        <label class="field-label" for="modelList">Ollama models list</label>
+                    </div>
+
                     <div class="row">
                         <input class="chck-box" type="checkbox" name="calcOnLoad" id="calcOnLoad" />
                         <label class="field-label" for="calcOnLoad">Calculate similarities on focus</label>
@@ -54,10 +76,31 @@
 
     </main>
     <script src="js/options.js"></script>
+
+    <dialog id="dlgAddEmbeddings">
+        <div class="dialog-title">API provider</div>
+        <div class="dialog-body">
+            <div class="row">
+                <label for="dlgName" class="dialog-label">Name:</label>
+                <input type="text" name="dlgName" id="dlgName" class="text-settings" >
+            </div>
+            <div class="row">
+                <label for="dlgUrl" class="dialog-label">URL:</label>
+                <input type="text" name="dlgUrl" id="dlgUrl" class="text-settings" >
+            </div>
+        </div>
+        <div class="dialog-footer">
+            <button id="dlgAdd" class="dialog-button">Add</button>
+            <button id="dlgCancel" class="dialog-button">Cancel</button>
+        </div>
+    </dialog>
+
     <template id="embeddingsHelpTemplate">
         <div>
             <p><a href="https://en.wikipedia.org/wiki/Localhost">Read about localhost if needed</a></p>
-            <p>If you're useing LM Studio <a href="https://lmstudio.ai/docs/local-server">here</a> is a bit more technical information</p>
+            <p>Available Local APIs. Manage your list with the buttons next to the dropdown. You can add, edit, remove, sort, or clear all items. Hover over the button to reveal the action.</p>
+            <p>When Ollama is chosen as the API provider, a list of its supported models automatically populates.</p>
+            <p>If you're useing LM Studio, <a href="https://lmstudio.ai/docs/local-server">here</a> is a bit more technical information</p>
             <p>Alternatively any tool that uses <a href="https://platform.openai.com/docs/api-reference">OpenAI's API format</a> could be used, even external one (if it is installed as a docker image or located on another near by machine).</p>
             <p>Usually the application that provided the service should have comprehensive documentation how to set up the environment.
                 Once done, enter here that port your preferable application is useing. The value is required and its default vaue is 1234.</p>

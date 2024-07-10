@@ -48,6 +48,7 @@ function setListner() {
 async function getLLMStudioOptions() {
   const defaults = {
     "embeddings": [],
+    "model": '',
     "threshold": 0.5,
     "calcOnLoad": false
   };
@@ -196,10 +197,10 @@ function getPopup() {
   popup.appendChild(dialogStyle);
 
   try {
-  const icon = document.createElement('img');
-  icon.src = chrome.runtime.getURL('img/warning.svg')
-  icon.classList.add('dlg-icon');
-  popup.appendChild(icon);
+      const icon = document.createElement('img');
+      icon.src = chrome.runtime.getURL('img/warning.svg')
+      icon.classList.add('dlg-icon');
+      popup.appendChild(icon);
   } catch (err) {
     if(err.message !== 'Extension context invalidated.'){
       console.error(`>>> ${manifest?.name ?? ''}`, err)
@@ -232,28 +233,34 @@ function getPopup() {
   return popup;
 }
 
-function showMessage(message, type = "info") {
-  if (!message) { return; }
-
-  let color;
+function getMessageColour(type = "info"){
+  let colour;
   switch (type) {
     case 'success':
     case 's':
-      color = '#bcfebc';
+      colour = '#bcfebc';
       break;
     case 'error':
     case 'e':
-      color = '#ffc2c2';
+      colour = '#ffc2c2';
       break;
     case 'warning':
     case 'warn':
     case 'w':
-      color = '#fca73e';
+      colour = '#fca73e';
       break;
     default:
-      color = '#ccc';
+      colour = '#ccc';
       break;
   }
+
+  return colour
+}
+
+function showMessage(message, type = "info") {
+  if (!message) { return; }
+
+  let color = getMessageColour(type);
 
   var popup = getPopup();
   if (!popup) {
@@ -456,4 +463,60 @@ function showCalculatedSimilarityAgain() {
     }
     document.body.removeChild(hideButton);
   });
+}
+
+function showNotificationRibbon(text, type = 'info'){
+    if(!text){  return;  }
+    const id = 'aiFormFillHelperTopRibbon';
+    let existingRibbon = document.getElementById(id);
+    if (existingRibbon) {  existingRibbon.remove();  }
+
+    let colour = getMessageColour(type);
+    let timeout = type === 'error' || type === 'e' ? 8000 : 5000;
+    let zIntex = getHighestZIndex();
+    let ribbon = document.createElement('div');
+    ribbon.id = id;
+    ribbon.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: ${zIntex};
+        text-align: center;
+        padding: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: opacity 1s ease;
+        background-color: ${colour};
+    `;
+
+    ribbon.innerText = text;
+    document.body.appendChild(ribbon);
+    ribbon.addEventListener('click', e => e.target.remove());
+
+    setTimeout(() => {
+        ribbon.style.opacity = '0';
+        setTimeout(() => {
+            ribbon.remove();
+        }, 1000);
+    }, timeout);
+}
+
+function getHighestZIndex() {
+  let elements = document.getElementsByTagName('*');
+  let highestZIndex = 0;
+  let highestElement = null;
+
+  for (let i = 0; i < elements.length; i++) {
+      let zIndex = window.getComputedStyle(elements[i]).zIndex;
+      if (zIndex === 'auto'){  continue;  }
+      if(highestZIndex > zIndex) {  continue;  }
+
+      highestZIndex = zIndex;
+      highestElement = elements[i];
+  }
+
+  let intZIndex = parseInt(highestZIndex, 10);
+
+  console.log({ element: highestElement, zIndex: highestZIndex });
+  return isNaN(intZIndex) ? highestZIndex : intZIndex + 10;
 }

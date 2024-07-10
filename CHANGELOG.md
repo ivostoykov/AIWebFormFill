@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.15.65] - 2024-06-23 - latest
+## [1.17.17] - 204-07-10 - latest
+
+- Allow to add more than one API and manage the list.
+- If Ollama is selected as API provider, a list of the available models is populated.
+- Models and providers added to the context menu for an easy temporary switch.
+
+## [1.15.65] - 2024-06-23
 
 - Fixed minor bugs in forms.
 - Enabled real-time updates for options.

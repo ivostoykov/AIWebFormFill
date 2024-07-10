@@ -39,6 +39,11 @@ body {
     padding: 15px;
 }
 
+select {
+    width: 250px;
+    height: 30px;
+}
+
 input.numeric-settings{
     width: 100px;
     height: 25px;
@@ -74,6 +79,17 @@ button {
     height: 4vh;
 }
 
+.model-icon-button{
+    width: 24px;
+    height: auto;
+    cursor: pointer;
+}
+
+.model-icon-button:hover{
+    background-color: #ddd;
+    border: 1px solid #aaa;
+}
+
 .row {
     display: flex;
     flex-direction: row;
@@ -81,6 +97,11 @@ button {
     margin-bottom: 20px;
     padding: 0 1rem;
     align-items: center;
+}
+
+.row-left{
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 .chck-box{
@@ -185,6 +206,10 @@ textarea {
     z-index: -1;
 }
 
+.obscured{
+  display: none;
+}
+
 .success {
     background-color: #00fb43 !important;
 }
@@ -200,3 +225,27 @@ textarea {
 .warning {
     background-color: orange !important;
 }
+
+dialog{
+    padding: 0 0 20px 0;
+}
+
+.dialog-title{
+    text-align: center;
+    font-weight: bold;
+    padding: 10px 0 25px 0;
+    background-color: #ffe;
+    border-bottom: 1px solid #ddd;
+}
+
+.dialog-label{
+    width: 10%;
+    text-align: right;
+}
+
+.dialog-body{
+    padding: 35px 0 10px 0;
+}
+
+.dialog-footer{}
+.dialog-button{}

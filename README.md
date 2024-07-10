@@ -43,15 +43,40 @@ The latest changes are available [here](CHANGELOG.md)
 ---
 
 ## Pre-requisits
-This extension works with a local AI. This means that you need AI installed. Also, it requires a local POST API endpoint to communicate with. You could use any tool at your convenience. Here I'll explain my preferable environment settings.
+This extension works with a local AI. This means that you need AI installed. Also, it requires a local POST API endpoint to communicate with. You could use any tool at your convenience. Here I'll explain my preferable environment settings. Some of the options are:
+
+- [LM Studio](https://lmstudio.ai/)
+- [Ollama](https://ollama.com)
 
 ### API server
 Probably the easier way to make all work is to use [LM Studio](https://lmstudio.ai/) (Ctrl+click to open in a new tab). Download and set it for your OS.
 This extension uses embeddings endpoint so it doesn't require great resources.
 
-Once LM Studio is set, download a MiniLM gulf (ie All-MiniLM-L6-v2-Embedding-GGUF). You need to search for it from within LM Studio and download it from there. Once on your machine, it will appear in the embeddings model list, where you have to activate it. And you're done; you're ready to fill out some other form.
+Once [LM Studio](https://lmstudio.ai/) is set, download a MiniLM gulf (ie *All-MiniLM-L6-v2-Embedding-GGUF*). You need to search for it from within [LM Studio](https://lmstudio.ai/) and download it from there. Once on your machine, it will appear in the embeddings model list, where you have to activate it. And you're done; you're ready to fill out some other form.
 
 ![LM Studio embeding MiniLm](media/miniLm.png)
+
+For [Ollama](https://ollama.com), keep reading [the next section](#models).
+
+### Models
+
+The model calculates similarity by comparing the option values to the meanings of fields in the form, using the provided descriptions and system properties. For a deeper understanding, refer to [this link](https://www.ibm.com/topics/embedding) or search your preferred resources.
+
+Depending on the model, there may be misunderstandings or inappropriate calculations due to:
+
+- **Contextual Differences:** The embeddings might have been trained on a dataset where, for example, "Phone" is not similar to "tel" and "mobile".
+- **Model Limitations:** The embedding model might not have captured the semantic similarity effectively.
+- **Data Representation:** The embeddings are high-dimensional and may represent nuances not immediately apparent in a simple comparison.
+
+**Note:** My personal preference is the **MiniLM L6 V2** model. However, experimenting with different models is beneficial to understand their limits.
+
+For [LM Studio](https://lmstudio.ai/), search for the mentioned model and download it.
+
+For [Ollama](https://ollama.com), use the following command in a terminal (if installed as per the documentation):
+
+```
+ollama pull all-minilm:l6-v2
+```
 
 ---
 
@@ -111,7 +136,35 @@ The [Form data](#form-data) values will be listed in this submenu, allowing to b
 Use circled question marks for a quick help or ask a quesion [here](https://github.com/ivostoykov/AIWebFormFill/issues).
 
 ## Embeddings endpoint API
-In LM Studion the full URL is given in the server log:
+
+### Ollama
+
+[Ollama](https://ollama.com/) embeddings documentation is [here](https://ollama.com/blog/embedding-models).
+
+If you followed the installation instructions and have it successfully set up, then you only need to add a suitable model listed in the [documentation](https://ollama.com/blog/embedding-models). For example:
+
+```
+ollama pull mxbai-embed-large
+```
+
+Then you need to set the API endpoint and choose that model in the [Options](#options) page.
+
+### Llamafile
+
+[Llamafile](https://github.com/Mozilla-Ocho/llamafile) embeddings documentation is [here](https://docs.llamaindex.ai/en/stable/examples/embeddings/llamafile/).
+
+It describes a few simple steps to set it up and run the server locally:
+
+```
+# Start the model server. Listens at http://localhost:8080 by default.
+./TinyLlama-1.1B-Chat-v1.0.Q5_K_M.llamafile --server --nobrowser --embedding
+```
+
+Do not forget to set it as default embedding end point in the [Options](#options) page.
+
+### LM Studio
+
+In [LM Studio](https://lmstudio.ai/)  the full URL is given in the server log:
 
 ![LMStudio endpoint](media/embeddings_endpoint.png)
 

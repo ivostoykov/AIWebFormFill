@@ -45,7 +45,7 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
 
 chrome.tabs.onActivated.addListener(async (tab) => {
     const theTab = await chrome.tabs.get(tab.tabId);
-    if (theTab?.url.indexOf('http') !== 0) { return; }
+    if (!theTab || theTab?.url.indexOf('http') !== 0) { return; }
     if (!isContextMenuCreated) {
         await createContextMenu(tab);
     }
@@ -238,7 +238,7 @@ async function init(tab) {
 
     setActiveUrl();
     const provider = AIHelperSettings.embeddings.filter(o => o.value === apiUrl)[0]?.text;
-    if(provider.toLowerCase().indexOf('ollama') > -1 && !activeModel){
+    if(provider?.toLowerCase().indexOf('ollama') > -1 && !activeModel){
         if( AIHelperSettings.model) {
             activeModel = AIHelperSettings.model;
         }
@@ -268,7 +268,7 @@ async function getStaticEmbeddings(tab) {
     try {
         const formFields = Object.keys(AIFillFormOptions);
         for (const field of formFields) {
-            const vectors = await fetchData(tab, generatePrompt(field.toLowerCase()));
+            const vectors = await fetchData(tab, generatePrompt(field?.toLowerCase()));
             if (vectors && vectors.length > 0) {
                 thisEmbeddings[field] = vectors;
             }
@@ -305,7 +305,7 @@ async function processForm(obj, tab) {
 }
 
 async function getSimilarityForMultiWordLabel(label, tab) {
-    const parts = label.toLowerCase().split(/\s/);
+    const parts = label?.toLowerCase().split(/\s/);
     const bestMatches = [];
     for (let x = 0, z = parts.length; x < z; x++) {
         const value = parts[x]?.trim();
@@ -359,7 +359,7 @@ async function getAttributeBestMatch(elAttributes, tab) {
             if(!attributeValue){  continue;  }
 
             if (!dynamicEmbeddings[attributeValue] || dynamicEmbeddings[attributeValue]?.length < 1) {
-                dynamicEmbeddings[attributeValue] = await fetchData(tab, generatePrompt(attributeValue.toLowerCase()));
+                dynamicEmbeddings[attributeValue] = await fetchData(tab, generatePrompt(attributeValue?.toLowerCase()));
             }
 
             bestMatches.push(getBestMatch(attributeValue));
@@ -426,11 +426,11 @@ async function getSimilarityForElementLabel(label, tab) {
 
 async function getBestKeyFor(prop, tab) {
     let bestKey = 'unknown';
-    const keyFound = Object.keys(staticEmbeddings).find(key => key.toLowerCase().trim() === prop.toLowerCase().trim());
+    const keyFound = Object.keys(staticEmbeddings).find(key => key?.toLowerCase().trim() === prop?.toLowerCase().trim());
     if(keyFound){
         bestKey = { "closest": AIFillFormOptions[keyFound], "similarity": 1, "threshold": AIHelperSettings.threshold };
     } else {
-        dynamicEmbeddings[prop] = await fetchData(tab, generatePrompt(prop.toLowerCase()));
+        dynamicEmbeddings[prop] = await fetchData(tab, generatePrompt(prop?.toLowerCase()));
         const key = getBestMatch(prop);
         bestKey = { "closest": AIFillFormOptions[key.closest], "similarity": key.similarity, "threshold": AIHelperSettings.threshold };
     }
@@ -505,7 +505,7 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
             obj = await calculateSimilarityProposalValue(obj, tab)
         } else {
             if (!Array.isArray(obj)) { obj = [obj]; }
-            const key = Object.keys(AIFillFormOptions).find(k => k.toLowerCase() === info.menuItemId.toLowerCase());
+            const key = Object.keys(AIFillFormOptions).find(k => k?.toLowerCase() === info.menuItemId?.toLowerCase());
             const value = key ? AIFillFormOptions[key] : '';
 
             obj[0]['data'] = JSON.stringify({ "closest": value, "similarity": 1, "threshold": AIHelperSettings.threshold });
@@ -581,7 +581,7 @@ async function fetchData(tab = null, body = {}) {
     if(!apiUrl) {
         setActiveUrl();
         const provider = AIHelperSettings.embeddings.filter(o => o.value === apiUrl)[0]?.text;
-        if(provider.toLowerCase().indexOf('ollama') > -1 && !activeModel){
+        if(provider?.toLowerCase().indexOf('ollama') > -1 && !activeModel){
              if( AIHelperSettings.model) {
                 activeModel = AIHelperSettings.model;
              }
@@ -705,8 +705,8 @@ async function addDataAsMenu(tab) {
 
     let keySorted = Object.keys(AIFillFormOptions);
     keySorted.sort((a, b) => {
-        a = a.toLowerCase();
-        b = b.toLowerCase();
+        a = a?.toLowerCase();
+        b = b?.toLowerCase();
         if (a < b) return -1;
         else if (a > b) return 1;
         else return 0;
@@ -716,7 +716,7 @@ async function addDataAsMenu(tab) {
         const value = AIFillFormOptions[key];
         if (!value) { continue; }
 
-        const menuId = key.replace(/\W/g, '').toLowerCase();
+        const menuId = key.replace(/\W/g, '')?.toLowerCase();
         if (createdMenus.includes(menuId)) { continue; }
 
         chrome.contextMenus.create({
@@ -757,7 +757,7 @@ async function addModelsMenu(tab) {
 
     for (let i = 0; i < empbeddings.length; i++) {
         const emb = empbeddings[i];
-        if (emb.text.toLowerCase().trim().indexOf('ollama') > -1) {
+        if (emb.text?.toLowerCase().trim().indexOf('ollama') > -1) {
             const models = await fetchModels(emb.value.replace('embeddings', 'tags'));
             if(!models) {  continue;  }
             for (let x = 0; x < models.length; x++) {

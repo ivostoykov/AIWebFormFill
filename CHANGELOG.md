@@ -9,7 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.17.17] - 2025-03-20 - latest
+## [1.28.70] - 2025-02-16 - latest
+
+- Refactored to sendMessage architecture and removed executeScript calls
+- Added support for custom textbox components
+- Fixed selector generation for IDs starting with numbers
+- Implemented frame-based form filling with targeted message passing
+- Added placeholder attribute to field detection for better AI matching
+- Code cleanup: removed dead code, fixed typos, added missing awaits
+
+## [1.17.17] - 2025-03-20
 
 - Minor bug fixed
 

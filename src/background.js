@@ -20,6 +20,31 @@ var dynamicEmbeddings = {};
 var apiUrl = '';
 var activeModel = '';
 
+// Timeout tracking for empty form detection
+const pendingCollectionTimeouts = new Map(); // tabId -> timeoutId
+
+function isOldFormat(data) {
+    return Object.values(data).some(v => !Array.isArray(v));
+}
+
+function convertToNewFormat(oldData) {
+    const newData = {};
+    for (const [field, value] of Object.entries(oldData)) {
+        if (Array.isArray(value)) { continue; }
+
+        if (!newData[value]) {
+            newData[value] = new Set();
+        }
+        newData[value].add(field);
+    }
+
+    for (const key in newData) {
+        newData[key] = Array.from(newData[key]);
+    }
+
+    return newData;
+}
+
 chrome.runtime.onInstalled.addListener((details) => {
     switch (details.reason) {
         case chrome.runtime.OnInstalledReason.INSTALL:
@@ -109,7 +134,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             break;
 
         case "fillthisfield":
-            await getAndProcessClickedElement(tab, info, true);
+            await getAndProcessClickedElement(tab, info, true, false);
+            break;
+
+        case "fillAndMapField":
+            await getAndProcessClickedElement(tab, info, true, true);
             break;
 
         case "showfieldmetadata":
@@ -119,10 +148,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         case "clearallfields":
             await clearAllFieldValues(info, tab)
             break;
-
-        /*         case "replacefieldvalue":
-                    chrome.tabs.sendMessage(tab.id, {action: "replaceFieldValue"});
-                    break; */
 
         case "showSimilarityAgain":
             await showSimilarityAgain(info, tab);
@@ -139,8 +164,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         default:
             if (info.menuItemId && /^api_/i.test(info.menuItemId)) {
                 await tempChamgeApiProvider(tab, info);
+            } else if (info.menuItemId && /^value_/i.test(info.menuItemId)) {
+                const shouldLearn = AIHelperSettings?.autoLearn;
+                await getAndProcessClickedElement(tab, info, false, shouldLearn);
             } else {
-                await getAndProcessClickedElement(tab, info, false);
+                await getAndProcessClickedElement(tab, info, false, false);
             }
     }
 });
@@ -151,6 +179,7 @@ async function createContextMenu(tab) {
     isContextMenuCreated = true;
     try {
         await chrome.contextMenus.removeAll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         chrome.contextMenus.create({
             id: "fillthisform",
@@ -165,6 +194,15 @@ async function createContextMenu(tab) {
             contexts: ["editable"],
             documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
+
+        if (!AIHelperSettings?.autoLearn) {
+            chrome.contextMenus.create({
+                id: "fillAndMapField",
+                title: "▭ Fill and map this field",
+                contexts: ["editable"],
+                documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+            });
+        }
 
         chrome.contextMenus.create({
             id: "clearallfields",
@@ -266,11 +304,14 @@ async function getStaticEmbeddings(tab) {
 
     const thisEmbeddings = {};
     try {
-        const formFields = Object.keys(AIFillFormOptions);
-        for (const field of formFields) {
-            const vectors = await fetchData(tab, generatePrompt(field?.toLowerCase()));
-            if (vectors && vectors.length > 0) {
-                thisEmbeddings[field] = vectors;
+        for (const [value, fieldArray] of Object.entries(AIFillFormOptions)) {
+            if (!Array.isArray(fieldArray)) { continue; }
+
+            for (const field of fieldArray) {
+                const vectors = await fetchData(tab, generatePrompt(field?.toLowerCase()));
+                if (vectors && vectors.length > 0) {
+                    thisEmbeddings[field] = vectors;
+                }
             }
         }
     } catch (err) {
@@ -281,7 +322,7 @@ async function getStaticEmbeddings(tab) {
     try {
         await chrome.storage.local.set({ [staticEmbeddingsStorageKey]: thisEmbeddings });
     } catch (error) {
-        console.error(`${manifest?.name ?? ''} >>>`, err);
+        console.error(`${manifest?.name ?? ''} >>>`, error);
         return {};
     }
 
@@ -341,7 +382,6 @@ async function getSimilarityForElemnt(el, tab) {
     }
 
     const theMatch = await getAttributeBestMatch(el[mainObjKey], tab);
-    theMatch.closest = AIFillFormOptions[theMatch.closest] || '';
     return theMatch;
 }
 
@@ -386,8 +426,11 @@ function checkForDirectMatch(elData) {
     for (let x = 0, z = keysToIterate.length; x < z; x++) {
         let key = keysToIterate[x];
         let value = elData[key];
-        if (staticEmbeddings[value]) { // direct match found
-            return { "closest": AIFillFormOptions[value], "similarity": 1, "threshold": AIHelperSettings.threshold };
+
+        for (const [valueToInsert, fieldArray] of Object.entries(AIFillFormOptions)) {
+            if (Array.isArray(fieldArray) && fieldArray.includes(value)) {
+                return { "closest": valueToInsert, "similarity": 1, "threshold": AIHelperSettings.threshold };
+            }
         }
     }
 
@@ -417,8 +460,6 @@ async function getSimilarityForElementLabel(label, tab) {
         if (bestKey.similarity < AIHelperSettings.threshold) {
             return false;
         }
-
-        bestKey.closest = AIFillFormOptions[bestKey.closest] || '';
     }
 
     return bestKey;
@@ -426,13 +467,26 @@ async function getSimilarityForElementLabel(label, tab) {
 
 async function getBestKeyFor(prop, tab) {
     let bestKey = 'unknown';
-    const keyFound = Object.keys(staticEmbeddings).find(key => key?.toLowerCase().trim() === prop?.toLowerCase().trim());
-    if(keyFound){
-        bestKey = { "closest": AIFillFormOptions[keyFound], "similarity": 1, "threshold": AIHelperSettings.threshold };
+
+    let valueFound = '';
+    for (const [value, fieldArray] of Object.entries(AIFillFormOptions)) {
+        if (Array.isArray(fieldArray)) {
+            const matchingField = fieldArray.find(
+                field => field?.toLowerCase().trim() === prop?.toLowerCase().trim()
+            );
+            if (matchingField) {
+                valueFound = value;
+                break;
+            }
+        }
+    }
+
+    if (valueFound) {
+        bestKey = { "closest": valueFound, "similarity": 1, "threshold": AIHelperSettings.threshold };
     } else {
         dynamicEmbeddings[prop] = await fetchData(tab, generatePrompt(prop?.toLowerCase()));
         const key = getBestMatch(prop);
-        bestKey = { "closest": AIFillFormOptions[key.closest], "similarity": key.similarity, "threshold": AIHelperSettings.threshold };
+        bestKey = { "closest": key.closest, "similarity": key.similarity, "threshold": AIHelperSettings.threshold };
     }
 
     return bestKey;
@@ -485,7 +539,7 @@ async function calculateSimilarityProposalValue(obj, tab) {
     return obj;
 }
 
-async function getAndProcessClickedElement(tab, info, shouldProcessElement = false) {
+async function getAndProcessClickedElement(tab, info, shouldProcessElement = false, shouldLearn = false) {
     if (!tab) {
         console.error(`${manifest?.name ?? ''}: Invalid tab id (${tab?.id || '???'})`);
         return;
@@ -493,22 +547,38 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
 
     try {
         if (!lastRightClickedElement) {
-            const sess = chrome.storage.session.get([sessionStorageKey]);
+            const sess = await chrome.storage.session.get([sessionStorageKey]);
             lastRightClickedElement = sess[sessionStorageKey];
             if (!lastRightClickedElement) {
-                showUIMessage(tab, 'No element found to handle context menu!', 'error');
+                await showUIMessage(tab, 'No element found to handle context menu!', 'error');
                 return;
             }
         }
         let obj = JSON.parse(lastRightClickedElement);
         if (shouldProcessElement) {
-            obj = await calculateSimilarityProposalValue(obj, tab)
+            await showLoader(tab);
+            obj = await calculateSimilarityProposalValue(obj, tab);
         } else {
             if (!Array.isArray(obj)) { obj = [obj]; }
-            const key = Object.keys(AIFillFormOptions).find(k => k?.toLowerCase() === info.menuItemId?.toLowerCase());
-            const value = key ? AIFillFormOptions[key] : '';
 
-            obj[0]['data'] = JSON.stringify({ "closest": value, "similarity": 1, "threshold": AIHelperSettings.threshold });
+            const menuId = info.menuItemId;
+            let value = '';
+
+            if (/^value_\d+/.test(menuId)) {
+                const index = parseInt(menuId.replace('value_', ''));
+                const values = Object.keys(AIFillFormOptions);
+                value = values[index] || '';
+            }
+
+            obj[0]['data'] = JSON.stringify({
+                "closest": value,
+                "similarity": 1,
+                "threshold": AIHelperSettings.threshold
+            });
+
+            if (shouldLearn && value) {
+                await learnFieldMapping(value, obj[0]);
+            }
         }
 
         await fillInputsWithProposedValues({ frameId: info.frameId, result: obj }, tab);
@@ -518,25 +588,66 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
     }
 }
 
+async function learnFieldMapping(value, elementData) {
+    if (!value || !elementData) { return; }
+
+    const mainKey = Object.keys(elementData)[0];
+    if (!mainKey) { return; }
+
+    const attrs = elementData[mainKey];
+    const fieldIdentifier = attrs.name || attrs.id || attrs['aria-label'] || '';
+
+    if (!fieldIdentifier) {
+        console.warn(`${manifest.name}: No suitable field identifier found for learning`);
+        return;
+    }
+
+    if (!AIFillFormOptions[value]) {
+        AIFillFormOptions[value] = [];
+    }
+
+    if (AIFillFormOptions[value].includes(fieldIdentifier)) {
+        return;
+    }
+
+    AIFillFormOptions[value].push(fieldIdentifier);
+
+    try {
+        await chrome.storage.sync.set({ [formFieldsStorageKey]: AIFillFormOptions });
+
+        staticEmbeddings = {};
+        await chrome.storage.local.remove([staticEmbeddingsStorageKey]);
+
+        console.log(`${manifest.name}: Learned mapping: "${value}" -> "${fieldIdentifier}"`);
+    } catch (err) {
+        console.error(`${manifest.name}: Failed to save learned mapping`, err);
+    }
+}
+
 async function getOptions() {
-    const defaults = {
-        "fullName": "",
-        "firstName": "",
-        "lastName": "",
-        "email": "",
-        "tel": "",
-        "address1": "",
-        "town": "",
-        "country": ""
-    };
+    const defaults = {};
 
     let options;
     try {
         const obj = await chrome.storage.sync.get([formFieldsStorageKey]);
-        options = Object.assign({}, defaults, obj[formFieldsStorageKey]);
+        let data = Object.assign({}, defaults, obj[formFieldsStorageKey]);
+
+        if (isOldFormat(data)) {
+            await chrome.storage.local.set({
+                'AIFillForm_backup_old_format': data,
+                'backup_timestamp': Date.now()
+            });
+
+            data = convertToNewFormat(data);
+
+            await chrome.storage.sync.set({ [formFieldsStorageKey]: data });
+            console.log(`${manifest.name}: Migrated data to new format`);
+        }
+
+        options = data;
     } catch (err) {
         options = defaults;
-        consnole.error('>>>', err);
+        console.error('>>>', err);
     }
 
     return options;
@@ -545,16 +656,18 @@ async function getOptions() {
 async function getAIHelperSettings() {
     const defaults = {
         "embeddings": [],
+        "model": '',
         "threshold": 0.5,
-        "calcOnLoad": false
+        "calcOnLoad": false,
+        "autoLearn": true
     };
     let lmsOptions;
     try {
-        obj = await chrome.storage.sync.get([AIsettingsStorageKey]);
+        const obj = await chrome.storage.sync.get([AIsettingsStorageKey]);
         lmsOptions = (Object.assign({}, defaults, obj[AIsettingsStorageKey]));
     } catch (err) {
         lmsOptions = defaults;
-        consnole.error('>>>', err);
+        console.error('>>>', err);
     }
     return lmsOptions;
 }
@@ -566,11 +679,6 @@ async function fetchData(tab = null, body = {}) {
 
     if (!AIHelperSettings || !AIHelperSettings.embeddings) {
         AIHelperSettings = await getAIHelperSettings();
-    }
-
-    if (!AIHelperSettings) {
-        showUIMessage("Please fill extension options.", "error");
-        return;
     }
 
     if (!AIHelperSettings.embeddings) {
@@ -654,13 +762,24 @@ function getBestMatch(value) {
     }
 
     if (Object.keys(similarities).length === 0) {
-        return { "closest": '', "similarity": 0, "threshold": AIHelperSettings.threshold };;
+        return { "closest": '', "similarity": 0, "threshold": AIHelperSettings.threshold };
     }
 
-    let closest = Object.keys(similarities).reduce((a, b) => similarities[a] > similarities[b] ? a : b);
-    let result = similarities[closest] >= AIHelperSettings.threshold ? closest : '';
+    let closestField = Object.keys(similarities).reduce((a, b) => similarities[a] > similarities[b] ? a : b);
 
-    return { "closest": result, "similarity": similarities[closest], "threshold": AIHelperSettings.threshold };
+    let valueToInsert = '';
+    for (const [value, fieldArray] of Object.entries(AIFillFormOptions)) {
+        if (Array.isArray(fieldArray) && fieldArray.includes(closestField)) {
+            valueToInsert = value;
+            break;
+        }
+    }
+
+    if (similarities[closestField] < AIHelperSettings.threshold) {
+        valueToInsert = '';
+    }
+
+    return { "closest": valueToInsert, "similarity": similarities[closestField], "threshold": AIHelperSettings.threshold };
 }
 
 function cosineSimilarity(vecA, vecB) {
@@ -701,33 +820,41 @@ async function addDataAsMenu(tab) {
         documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
-    var createdMenus = [];
+    const createdMenus = [];
 
-    let keySorted = Object.keys(AIFillFormOptions);
-    keySorted.sort((a, b) => {
-        a = a?.toLowerCase();
-        b = b?.toLowerCase();
-        if (a < b) return -1;
-        else if (a > b) return 1;
-        else return 0;
-    });
+    const values = Object.keys(AIFillFormOptions).sort();
 
-    for (const key of keySorted) {
-        const value = AIFillFormOptions[key];
+    for (let i = 0; i < values.length; i++) {
+        const value = values[i];
         if (!value) { continue; }
 
-        const menuId = key.replace(/\W/g, '')?.toLowerCase();
+        const menuId = `value_${i}`;
         if (createdMenus.includes(menuId)) { continue; }
 
         chrome.contextMenus.create({
             id: menuId,
             parentId: "dataset",
             title: `☛ ${value}`,
-            // title: `☛ ${key} ( ${value} )`,
             contexts: ["editable"],
             documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
         createdMenus.push(menuId);
+    }
+}
+
+function safeCreateContextMenu(options) {
+    try {
+        chrome.contextMenus.create(options, () => {
+            if (chrome.runtime.lastError) {
+                if (!chrome.runtime.lastError.message.includes('duplicate id')) {
+                    console.warn(`${manifest.name ?? ''}: Context menu error:`, chrome.runtime.lastError.message);
+                }
+            }
+        });
+    } catch (e) {
+        if (!e.message.includes('duplicate id')) {
+            console.error(`${manifest.name ?? ''}: Failed to create context menu:`, e);
+        }
     }
 }
 
@@ -741,14 +868,14 @@ async function addModelsMenu(tab) {
     const empbeddings = Array.isArray(AIHelperSettings['embeddings']) ? AIHelperSettings['embeddings'] : [AIHelperSettings['embeddings']];
     if (empbeddings.length < 1) { return; }
 
-    chrome.contextMenus.create({
+    safeCreateContextMenu({
         id: "empbeddingsseparator",
         type: "separator",
         contexts: ["editable"],
         documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
-    chrome.contextMenus.create({
+    safeCreateContextMenu({
         id: "provider",
         title: "↔ Change provider",
         contexts: ["editable"],
@@ -762,7 +889,7 @@ async function addModelsMenu(tab) {
             if(!models) {  continue;  }
             for (let x = 0; x < models.length; x++) {
                 const model = models[x];
-                chrome.contextMenus.create({
+                safeCreateContextMenu({
                     id: `api_${emb.text}_${model.model}`,
                     parentId: "provider",
                     title: `${emb.value === apiUrl && activeModel === model.model ? '✓ ' : '  '}${emb.text} - ${model.model}`,
@@ -771,7 +898,7 @@ async function addModelsMenu(tab) {
                 });
             }
         } else {
-            chrome.contextMenus.create({
+            safeCreateContextMenu({
                 id: `api_${emb.text.replace(/\s+/g, '+')}`,
                 parentId: "provider",
                 title: `${emb.value === apiUrl ? '✓ ' : '  '}${emb.text}`,
@@ -792,46 +919,67 @@ async function getCurrentTab() {
 
 async function fillInputsWithProposedValues(data, tab) {
     if (!data) {
-        showUIMessage(tab, 'No data provided for the action!', 'warning');
+        await showUIMessage(tab, 'No data provided for the action!', 'warning');
         return;
     }
 
     if (!data?.result || data.result.length < 1) {
+        await showUIMessage(tab, 'No fields to fill', 'info');
         return;
     }
 
     try {
-        const res = await chrome.scripting.executeScript({
-            target: { tabId: tab.id, frameIds: [data.frameId] },
-            func: (data) => fillFormWithProposedValues(data?.result), // fillFieldsWithProposalValues(data),
-            args: [data]
+        // CRITICAL: Send fillFields ONLY to the specific frame that has the fields
+        await chrome.tabs.sendMessage(tab.id, {
+            action: 'fillFields',
+            data: data.result
+        }, {
+            frameId: data.frameId  // Target specific frame
         });
     } catch (err) {
         console.error(`${manifest?.name ?? ''} >>>`, err);
         console.log(`${manifest.name ?? ''}: data >>>`, data);
-        showUIMessage(tab, err.message, 'error');
+        await showUIMessage(tab, err.message, 'error');
     }
 }
 
 async function executeFormFillRequest(info, tab, callbackAction) {
-    let res;
     try {
-        res = await chrome.scripting.executeScript({
-            target: { tabId: tab.id, allFrames: true },
-            func: (callbackAction) => {
-                return collectInputFields(document, callbackAction);
-            },
-            args: [callbackAction]
+        // Set timeout to handle case where NO frame has fields
+        const timeoutId = setTimeout(async () => {
+            pendingCollectionTimeouts.delete(tab.id);
+            await showUIMessage(tab, 'No fields to fill', 'info');
+        }, 2000); // 2 second timeout
+
+        pendingCollectionTimeouts.set(tab.id, timeoutId);
+
+        await chrome.tabs.sendMessage(tab.id, {
+            action: 'collectFields'
         });
     } catch (err) {
         console.error(`${manifest?.name ?? ''} >>>`, err);
-        console.log(`${manifest.name ?? ''}: fields >>>`, res);
-        showUIMessage(tab, err.message, 'error');
+        // Clear timeout on error
+        const timeoutId = pendingCollectionTimeouts.get(tab.id);
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+            pendingCollectionTimeouts.delete(tab.id);
+        }
+        await showUIMessage(tab, err.message, 'error');
     }
 }
 
 async function processCollectedFields(fields, sender) {
+    const tab = sender.tab;
+
+    // Clear timeout since we received a response
+    const timeoutId = pendingCollectionTimeouts.get(tab.id);
+    if (timeoutId) {
+        clearTimeout(timeoutId);
+        pendingCollectionTimeouts.delete(tab.id);
+    }
+
     if (!fields || fields.length < 1) {
+        await chrome.tabs.sendMessage(tab.id, { action: 'hideLoader' });
         return;
     }
 
@@ -840,25 +988,30 @@ async function processCollectedFields(fields, sender) {
         res = JSON.parse(fields);
     } catch (e) {
         console.error(`${manifest.name ?? ''}: parsing fields json >>>`, e);
+        await showUIMessage(tab, 'Failed to parse form fields', 'error');
         return;
     }
 
-    if (!res) { return; }
-    const tab = sender.tab;
+    if (!res) {
+        await chrome.tabs.sendMessage(tab.id, { action: 'hideLoader' });
+        return;
+    }
+
     if (!Array.isArray(res)) { res = [res]; }
 
-    const filledInputs = await processForm(res, tab);
-
-    await fillInputsWithProposedValues({ "result": filledInputs, "frameId": sender.frameId }, tab);
+    try {
+        const filledInputs = await processForm(res, tab);
+        await fillInputsWithProposedValues({ "result": filledInputs, "frameId": sender.frameId }, tab);
+    } catch (e) {
+        console.error(`${manifest.name ?? ''}: processing form >>>`, e);
+        await showUIMessage(tab, e.message || 'Error processing form', 'error');
+    }
 }
 
 async function showSimilarityAgain(info, tab) {
     if (!/^http/i.test(tab.url)) { return; }
     try {
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id, allFrames: true },
-            func: () => { showCalculatedSimilarityAgain(); }
-        });
+        await chrome.tabs.sendMessage(tab.id, { action: 'showSimilarities' });
     } catch (e) {
         console.error(`${manifest.name ?? ''}`, e)
     }
@@ -867,10 +1020,7 @@ async function showSimilarityAgain(info, tab) {
 async function removeSimilatityHints(tab) {
     if (!/^http/i.test(tab.url)) { return; }
     try {
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id, allFrames: true },
-            func: () => { hideSimilatityHints(); }
-        });
+        await chrome.tabs.sendMessage(tab.id, { action: 'hideSimilarities' });
     } catch (e) {
         console.error(`${manifest.name ?? ''}`, e)
     }
@@ -879,10 +1029,16 @@ async function removeSimilatityHints(tab) {
 async function clearAllFieldValues(info, tab) {
     if (!/^http/i.test(tab.url)) { return; }
     try {
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id, allFrames: true },
-            func: () => { clearAllFields(); }
-        });
+        await chrome.tabs.sendMessage(tab.id, { action: 'clearFields' });
+    } catch (e) {
+        console.error(`${manifest.name ?? ''}`, e)
+    }
+}
+
+async function showLoader(tab) {
+    if (!/^http/i.test(tab.url)) { return; }
+    try {
+        await chrome.tabs.sendMessage(tab.id, { action: 'showLoader' });
     } catch (e) {
         console.error(`${manifest.name ?? ''}`, e)
     }
@@ -891,10 +1047,10 @@ async function clearAllFieldValues(info, tab) {
 async function showUIMessage(tab, message, type = '') {
     if (!/^http/i.test(tab.url)) { return; }
     try {
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id, frameIds: [0] },
-            func: (message, type) => { showMessage(message, type); },
-            args: [message, type]
+        await chrome.tabs.sendMessage(tab.id, {
+            action: 'showMessage',
+            message: message,
+            type: type
         });
     } catch (e) {
         console.error(`${manifest.name ?? ''}`, e)
@@ -904,12 +1060,15 @@ async function showUIMessage(tab, message, type = '') {
 async function showUINotification(tab, message, type = 'info') {
     if (!/^http/i.test(tab.url)) { return; }
     try {
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id, frameIds: [0] },
-            func: (message, type) => { showNotificationRibbon(message, type); },
-            args: [message, type]
+        await chrome.tabs.sendMessage(tab.id, {
+            action: 'showNotification',
+            message: message,
+            type: type
         });
     } catch (e) {
+        if (chrome.runtime.lastError) {
+            console.error(`${manifest.name ?? ''}: ${chrome.runtime.lastError.message}`);
+        }
         console.error(`${manifest.name ?? ''}`, e)
     }
 }
@@ -917,10 +1076,7 @@ async function showUINotification(tab, message, type = 'info') {
 async function showFieldAttributesMetadata(info, tab) {
     if (!/^http/i.test(tab.url)) { return; }
     try {
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id, allFrames: true },
-            func: () => { showFieldsMetadata(); }
-        });
+        await chrome.tabs.sendMessage(tab.id, { action: 'showMetadata' });
     } catch (e) {
         console.error(`${manifest.name ?? ''}`, e)
     }
@@ -932,10 +1088,9 @@ async function execAutoSimilarityProposals(info, sender) {
     }
 
     try {
-        await chrome.scripting.executeScript({
-            target: { tabId: sender.tab.id, allFrames: true },
-            func: (isAuto) => { if (typeof (setAutoSimilarityProposalOn) === 'function') { setAutoSimilarityProposalOn(document, isAuto); } },
-            args: [AIHelperSettings?.calcOnLoad]
+        await chrome.tabs.sendMessage(sender.tab.id, {
+            action: 'toggleAutoProposals',
+            enabled: AIHelperSettings?.calcOnLoad
         });
     } catch (e) {
         console.error(`${manifest.name ?? ''}`, e)
@@ -963,12 +1118,14 @@ async function setProposalValue(el, tab) {
     const prop = await calculateSimilarityProposalValue(el, tab);
     if (!prop) { return; }
     try {
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id, allFrames: true },
-            func: (elWithProposal) => { if (typeof (showProposal) === 'function') { showProposal(elWithProposal); } },
-            args: [prop]
+        await chrome.tabs.sendMessage(tab.id, {
+            action: 'showProposal',
+            element: prop
         });
     } catch (e) {
+        if (chrome.runtime.lastError) {
+            console.error(`${manifest.name ?? ''}: ${chrome.runtime.lastError.message}`);
+        }
         console.error(`${manifest.name ?? ''}`, e)
     }
 }
@@ -1010,11 +1167,11 @@ async function tempChamgeApiProvider(tab, info){
     setActiveUrl(provider);
     setActiveModel(model);
 
-    isContextMenuCreated = false; // invalidate menu
-    createContextMenu(tab); // have to recreate it to add a tick
+    isContextMenuCreated = false;
+    await createContextMenu(tab);
 
-    staticEmbeddings = {}; // need to clean it, otherwise will return the existing object
-    showUINotification(tab, `Provider changed to ${provider?.replace(/\+/g, ' ')}${model ? ' - ': ''}${model || ''}.`, 'success');
+    staticEmbeddings = {};
+    await showUINotification(tab, `Provider changed to ${provider?.replace(/\+/g, ' ')}${model ? ' - ': ''}${model || ''}.`, 'success');
 }
 
 function getSelectedProviderIndex(){

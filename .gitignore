@@ -1,6 +1,11 @@
 *.zip
+**/*.zip
 log.*
-*.log
+**/log.*
+**/*.log
 url2check.txt
 *.bak
+**/*.bak
 *.bak/*
+**/*.bak/**
+.mcp.json

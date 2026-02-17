@@ -17,7 +17,8 @@ var defaultSettings = {
     "embeddings": [],
     "model": '',
     "threshold": 0.5,
-    "calcOnLoad": false
+    "calcOnLoad": false,
+    "autoLearn": true
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -60,7 +61,12 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadSettings() {
         try {
             const obj = await chrome.storage.sync.get([formFieldsStorageKey, AIsettingsStarageKey]);
-            const items = Object.assign({}, defaultFormFields, obj[formFieldsStorageKey]);
+            let items = Object.assign({}, obj[formFieldsStorageKey]);
+
+            if (items && isOldFormat(items)) {
+                items = convertToNewFormat(items);
+            }
+
             const settings = Object.assign({}, defaultSettings, obj[AIsettingsStarageKey]);
             jsonInput.value = JSON.stringify(items, null, 4);
             for (const [key, value] of Object.entries(settings)) {
@@ -69,7 +75,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 if(key === 'embeddings'){
                     fillEmbeddingsOption(el, value);
                     el.dispatchEvent(new Event('change', {bubbles: true}));
-                    // fillModelList();
                     continue;
                 }
                 if (el.type === 'checkbox') {
@@ -84,11 +89,40 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function isOldFormat(data) {
+        return Object.values(data).some(v => !Array.isArray(v));
+    }
+
+    function convertToNewFormat(oldData) {
+        const newData = {};
+        for (const [field, value] of Object.entries(oldData)) {
+            if (Array.isArray(value)) { continue; }
+
+            if (!newData[value]) {
+                newData[value] = new Set();
+            }
+            newData[value].add(field);
+        }
+
+        for (const key in newData) {
+            newData[key] = Array.from(newData[key]);
+        }
+
+        return newData;
+    }
+
     loadSettings();
 
     async function saveSettings(e) {
         try {
             const userInput = JSON.parse(jsonInput.value);
+
+            for (const [key, value] of Object.entries(userInput)) {
+                if (!Array.isArray(value)) {
+                    throw new Error(`Invalid format: "${key}" must be an array of field names`);
+                }
+            }
+
             var settingValues = {};
             document.querySelectorAll('input[type="text"]').forEach(el => settingValues[el.id] = el.value );
             document.querySelectorAll('input[type="number"]').forEach(el => settingValues[el.id] = el.value );
@@ -234,6 +268,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 break;
             case "Calculate similarities on focus":
                 setHelpContent('#calcSimilaritiesOnFocus', label);
+                break;
+            case "Auto-learn field mappings":
+                setHelpContent('#autoLearnHelp', label);
                 break;
             case "Form Fields Values":
                 setHelpContent('#formFieldValuesHelp', label);

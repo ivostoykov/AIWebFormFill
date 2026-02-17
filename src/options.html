@@ -58,6 +58,11 @@
                         <label class="field-label" for="calcOnLoad">Calculate similarities on focus</label>
                         <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
                     </div>
+                    <div class="row">
+                        <input class="chck-box" type="checkbox" name="autoLearn" id="autoLearn" />
+                        <label class="field-label" for="autoLearn">Auto-learn field mappings</label>
+                        <img src="img/help-circle.svg" class="help-icon">&nbsp;</img>
+                    </div>
                     <div class="col">
                         <div class="row">
                             <label for="jsonInput" class="block col-label">Form Fields Values</label>
@@ -132,6 +137,14 @@
                 <p>For instance: <i>post code</i> and <i>zip</i> won't be recognised perhaps and requiring the same value, while <i>post code</i> and <i>zip code</i>
                     will be treated as similar and won't be necessary to add another key/value pair.
                 </p>
+        </div>
+    </template>
+    <template id="autoLearnHelp">
+        <div>
+            <p>When enabled, the extension automatically remembers field mappings when you fill forms.</p>
+            <p>When you manually select a value from the context menu, the extension will associate
+               that value with the field name, improving future matches.</p>
+            <p>When disabled, use "Fill and map this field" to explicitly teach the extension.</p>
         </div>
     </template>
 </body>

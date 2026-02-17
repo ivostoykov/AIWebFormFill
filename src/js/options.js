@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.querySelector(".cancel").addEventListener("click", (e) => {
         document.getElementById('jsonInput').value = JSON.stringify(defaultFormFields, null, 4);
-    });
+    }); 
 
     function showMessage(msg, type) {
         messageRibbon.textContent = msg;

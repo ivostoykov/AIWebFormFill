@@ -177,6 +177,7 @@ async function createContextMenu(tab) {
 
     if (isContextMenuCreated) { return; }
     isContextMenuCreated = true;
+    AIHelperSettings = await getAIHelperSettings();
     try {
         await chrome.contextMenus.removeAll();
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -198,7 +199,7 @@ async function createContextMenu(tab) {
         if (!AIHelperSettings?.autoLearn) {
             chrome.contextMenus.create({
                 id: "fillAndMapField",
-                title: "▭ Fill and map this field",
+                title: "▭ Map and fill this field",
                 contexts: ["editable"],
                 documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
             });

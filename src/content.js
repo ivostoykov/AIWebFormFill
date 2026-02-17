@@ -1,5 +1,6 @@
 const manifest = chrome.runtime.getManifest();
 const AIsettingsStorageKey = "settings";
+const loaderElementId = 'aiFormFillHelperLoader';
 var _field;
 var _AiFillTarget = {};
 var similarityInfo = [];
@@ -525,17 +526,17 @@ function showCalculatedSimilarityAgain() {
 let loaderShowTime = 0;
 
 function showLoader() {
-    const id = 'aiFormFillHelperLoader';
-    let existingLoader = document.getElementById(id);
+    if (window !== window.top) { return; }
+    let existingLoader = document.getElementById(loaderElementId);
     if (existingLoader) { return; }
 
     loaderShowTime = Date.now();
 
     const zIntex = getHighestZIndex();
     const loaderStyle = document.createElement('style');
-    loaderStyle.id = `${id}Style`;
+    loaderStyle.id = `${loaderElementId}Style`;
     loaderStyle.textContent = `
-        #${id} {
+        #${loaderElementId} {
             position: fixed;
             top: 50%;
             left: 50%;
@@ -591,7 +592,7 @@ function showLoader() {
     `;
 
     const loaderContainer = document.createElement('div');
-    loaderContainer.id = id;
+    loaderContainer.id = loaderElementId;
     loaderContainer.title = 'Click to dismiss';
 
     const loader = document.createElement('span');
@@ -608,9 +609,7 @@ function showLoader() {
 
 function hideLoader() {
   try {
-    const id = 'aiFormFillHelperLoader';
-    const loader = document.getElementById(id);
-    loader?.remove();
+    document.getElementById(loaderElementId)?.remove();
   } catch (err) {
     console.log(`>>> ${manifest?.name ?? ''} - ${err.message}`, err);
   }
@@ -929,6 +928,8 @@ function fillFormWithProposedValues(formValues) {
     topField?.focus();
   } catch (err) {
     console.error(`${manifest?.name ?? ''} >>> ${err.message}`, err);
+  } finally {
+    hideLoader();
   }
 }
 

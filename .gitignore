@@ -9,3 +9,5 @@ url2check.txt
 *.bak/*
 **/*.bak/**
 .mcp.json
+*.json.*
+**/*.json.*

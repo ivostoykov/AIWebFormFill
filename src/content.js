@@ -610,6 +610,7 @@ function showLoader() {
 function hideLoader() {
   try {
     document.getElementById(loaderElementId)?.remove();
+    window?.top?.document?.getElementById(loaderElementId)?.remove();
   } catch (err) {
     console.log(`>>> ${manifest?.name ?? ''} - ${err.message}`, err);
   }

@@ -378,6 +378,27 @@ document.addEventListener("DOMContentLoaded", () => {
         showMessage('Options sorted', 'success');
     }
 
+
+    function isLocalOrSecureEndpoint(urlString){
+        try {
+            const url = new URL(urlString);
+            const hostname = url.hostname.toLowerCase();
+
+            const isLocalhost = hostname === 'localhost' ||
+                              hostname === '127.0.0.1' ||
+                              hostname === '::1' ||
+                              hostname.startsWith('192.168.') ||
+                              hostname.startsWith('10.') ||
+                              /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+
+            const isSecure = url.protocol === 'https:';
+
+            return { isLocal: isLocalhost, isSecure, hostname, protocol: url.protocol };
+        } catch (e) {
+            return { isLocal: false, isSecure: false, hostname: '', protocol: '' };
+        }
+    }
+
     function dialogButtonClicked(e){
         const dlg = e.target.closest('dialog');
         if(!dlg){  return;  }
@@ -391,6 +412,22 @@ document.addEventListener("DOMContentLoaded", () => {
         const dlgName = dlg.querySelector('#dlgName')?.value || 'Unknown';
         const dlgUrl = dlg.querySelector('#dlgUrl')?.value || '';
         if(!dlgName || !dlgUrl){  return;  }
+
+        const check = isLocalOrSecureEndpoint(dlgUrl);
+        if (!check.isLocal || !check.isSecure) {
+            let warnings = [];
+            if (!check.isLocal) {
+                warnings.push(`⚠ This endpoint (${check.hostname}) is not on localhost or a private network. Field metadata will be sent to this remote host.`);
+            }
+            if (!check.isSecure && check.protocol === 'http:') {
+                warnings.push(`⚠ This endpoint uses plain HTTP. Data will not be encrypted in transit.`);
+            }
+
+            const confirmMsg = warnings.join('\n\n') + '\n\nAre you sure you want to add this endpoint?';
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+        }
 
         const embeddings = document.querySelector('#embeddings');
         if(!embeddings)  {  return;  }

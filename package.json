@@ -1,0 +1,18 @@
+{
+  "name": "ai-web-form-fill-helper",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI-powered web form filling browser extension",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@vitest/ui": "^2.1.8",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.8",
+    "vitest-webextension-mock": "^0.0.7"
+  }
+}

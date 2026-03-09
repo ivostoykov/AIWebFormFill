@@ -9,7 +9,7 @@ This is a small project aimed at facilitating the filling of web forms. There ma
 
 No doubt, there are many well-sophisticated tools and solutions out there that may satisfy a wide range of needs.
 
-This one is different. It was created with privacy in mind. That means that the data you use stays locally on your machine and is neither shared nor stored outside it. What fields will be filled by this tool is entirely up to you.
+This one is different. It was created with privacy in mind. Your data is stored in browser extension storage and can optionally sync across your signed-in browser instances through the browser's built-in sync mechanism. This allows you to reuse your form data across devices without manual export/import. What fields will be filled by this tool is entirely up to you.
 
 ### And the best part - it is free, [FOSS](https://en.wikipedia.org/wiki/Free_and_open-source_software), and will remain such.
 

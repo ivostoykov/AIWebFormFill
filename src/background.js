@@ -20,8 +20,7 @@ var dynamicEmbeddings = {};
 var apiUrl = '';
 var activeModel = '';
 
-// Timeout tracking for empty form detection
-const pendingCollectionTimeouts = new Map(); // tabId -> timeoutId
+const pendingCollectionTimeouts = new Map();
 
 function isOldFormat(data) {
     return Object.values(data).some(v => !Array.isArray(v));
@@ -43,6 +42,24 @@ function convertToNewFormat(oldData) {
     }
 
     return newData;
+}
+
+function cosineSimilarity(vecA, vecB) {
+    if (!Array.isArray(vecA) || !Array.isArray(vecB)) {
+        console.error(`${manifest.name ?? ''}: Invalid input vectors`, vecA, vecB);
+        return 0;
+    }
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        if (!vecA[i] || !vecB[i]) { break; }
+        dotProduct += vecA[i] * vecB[i];
+        normA += vecA[i] * vecA[i];
+        normB += vecB[i] * vecB[i];
+    }
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -107,7 +124,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
             await execAutoSimilarityProposals(message, sender);
             break;
 
-        case "storeRightClickedElement":
+        case "getClickedElementData":
             lastRightClickedElement = message.element;
             await chrome.storage.session.set({ [sessionStorageKey]: lastRightClickedElement })
             break;
@@ -134,11 +151,19 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             break;
 
         case "fillthisfield":
-            await getAndProcessClickedElement(tab, info, true, false);
+            await getAndProcessClickedElement(tab, info, true, false, false);
+            break;
+
+        case "copyToClipboard":
+            await getAndProcessClickedElement(tab, info, true, false, true, true);
+            break;
+
+        case "fillAndCopyToClipboard":
+            await getAndProcessClickedElement(tab, info, true, false, true);
             break;
 
         case "fillAndMapField":
-            await getAndProcessClickedElement(tab, info, true, true);
+            await getAndProcessClickedElement(tab, info, true, true, false);
             break;
 
         case "showfieldmetadata":
@@ -166,9 +191,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 await tempChamgeApiProvider(tab, info);
             } else if (info.menuItemId && /^value_/i.test(info.menuItemId)) {
                 const shouldLearn = AIHelperSettings?.autoLearn;
-                await getAndProcessClickedElement(tab, info, false, shouldLearn);
+                await getAndProcessClickedElement(tab, info, false, shouldLearn, false);
             } else {
-                await getAndProcessClickedElement(tab, info, false, false);
+                await getAndProcessClickedElement(tab, info, false, false, false);
             }
     }
 });
@@ -192,6 +217,20 @@ async function createContextMenu(tab) {
         chrome.contextMenus.create({
             id: "fillthisfield",
             title: "▭ Fill this field",
+            contexts: ["editable"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
+
+        chrome.contextMenus.create({
+            id: "copyToClipboard",
+            title: "📋 Copy value to clipboard",
+            contexts: ["editable"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
+
+        chrome.contextMenus.create({
+            id: "fillAndCopyToClipboard",
+            title: "▭📋 Fill and copy to clipboard",
             contexts: ["editable"],
             documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
@@ -540,22 +579,30 @@ async function calculateSimilarityProposalValue(obj, tab) {
     return obj;
 }
 
-async function getAndProcessClickedElement(tab, info, shouldProcessElement = false, shouldLearn = false) {
+async function getAndProcessClickedElement(tab, info, shouldProcessElement = false, shouldLearn = false, shouldCopyToClipboard = false, clipboardOnly = false) {
     if (!tab) {
         console.error(`${manifest?.name ?? ''}: Invalid tab id (${tab?.id || '???'})`);
         return;
     }
 
     try {
-        if (!lastRightClickedElement) {
-            const sess = await chrome.storage.session.get([sessionStorageKey]);
-            lastRightClickedElement = sess[sessionStorageKey];
-            if (!lastRightClickedElement) {
-                await showUIMessage(tab, 'No element found to handle context menu!', 'error');
-                return;
-            }
+        let elementData;
+        try {
+            elementData = await chrome.tabs.sendMessage(tab.id, {
+                action: 'getClickedElementData'
+            }, { frameId: info.frameId });
+        } catch (err) {
+            console.error(`${manifest?.name ?? ''}: Failed to get element data`, err);
+            await showUIMessage(tab, 'Failed to get field data', 'error');
+            return;
         }
-        let obj = JSON.parse(lastRightClickedElement);
+
+        if (!elementData) {
+            await showUIMessage(tab, 'No element found to handle context menu!', 'error');
+            return;
+        }
+
+        let obj = elementData;
         if (shouldProcessElement) {
             await showLoader(tab);
             obj = await calculateSimilarityProposalValue(obj, tab);
@@ -582,7 +629,25 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
             }
         }
 
-        await fillInputsWithProposedValues({ frameId: info.frameId, result: obj }, tab);
+        if (shouldCopyToClipboard && obj[0]) {
+            let suggestedValue;
+            try {
+                suggestedValue = JSON.parse(obj[0]?.data || '{}');
+            } catch (e) {
+                suggestedValue = {};
+            }
+
+            if (suggestedValue?.closest) {
+                await chrome.tabs.sendMessage(tab.id, {
+                    action: 'copyToClipboard',
+                    value: suggestedValue.closest
+                }, { frameId: info.frameId });
+            }
+        }
+
+        if (!clipboardOnly) {
+            await fillInputsWithProposedValues({ frameId: info.frameId, result: obj }, tab);
+        }
     } catch (e) {
         await showUIMessage(tab, e.message, 'error');
         console.warn(`>>> ${manifest?.name ?? ''}`, e);
@@ -783,23 +848,6 @@ function getBestMatch(value) {
     return { "closest": valueToInsert, "similarity": similarities[closestField], "threshold": AIHelperSettings.threshold };
 }
 
-function cosineSimilarity(vecA, vecB) {
-    if (!Array.isArray(vecA) || !Array.isArray(vecB)) {
-        console.error(`${manifest.name ?? ''}: Invalid input vectors`, vecA, vecB);
-        return 0;
-    }
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < vecA.length; i++) {
-        if (!vecA[i] || !vecB[i]) { break; }
-        dotProduct += vecA[i] * vecB[i];
-        normA += vecA[i] * vecA[i];
-        normB += vecB[i] * vecB[i];
-    }
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-}
 
 async function addDataAsMenu(tab) {
     if (!Object.entries(AIFillFormOptions).some(([key, value]) => value)) {
@@ -1172,6 +1220,8 @@ async function tempChamgeApiProvider(tab, info){
     await createContextMenu(tab);
 
     staticEmbeddings = {};
+    dynamicEmbeddings = {};
+    await chrome.storage.local.remove([staticEmbeddingsStorageKey]);
     await showUINotification(tab, `Provider changed to ${provider?.replace(/\+/g, ' ')}${model ? ' - ': ''}${model || ''}.`, 'success');
 }
 

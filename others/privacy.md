@@ -8,19 +8,19 @@ This privacy policy governs the use of the software application AI Form Fill Hel
 
 ## Disclosure
 
-**Limited Use:** The user, at their own discretion, provides information that the Extension encrypts and stores locally on the user's device. No personal information is transmitted outside of the user's device.
+**Limited Use:** The user, at their own discretion, provides information that the Extension stores in browser extension storage. User data and settings are stored using the browser's sync storage mechanism, which means they may be synchronized across browser instances where the user is signed in with the same browser account. This is a convenience feature that allows users to reuse their form data across devices. No personal information is transmitted to third parties or external services.
 
 **Financial and Payment Information:** The Extension does not handle or require any financial and payment information.
 
 **Authentication Information:** The Extension does not require or collect any authentication information.
 
-**User Data:** The Extension accesses web form field data only when explicitly triggered by the user, solely for the purpose of filling out forms. No data is collected or shared with third parties. The provided data is used exclusively to execute the core functionality of filling forms.
+**User Data:** The Extension accesses web form field data only when explicitly triggered by the user through extension commands, solely for the purpose of filling out forms. No data is collected or shared with third parties. The provided data is used exclusively to execute the core functionality of filling forms.
 
 ## Permissions and Security
 
 **Permissions:** Permissions required by the Extension are minimal and only intended to enable its core functionalities such as accessing active tabs to input or modify form data. The Extension asks for user consent before accessing any content.
 
-**Security Measures:** The Extension uses standard security features to protect user data and prevent unauthorized access. Data used by the Extension is encrypted and stored locally, enhancing security and privacy.
+**Security Measures:** The Extension uses standard browser extension storage mechanisms to store user data. The browser's sync storage provides the same level of protection as other browser-synced data (bookmarks, passwords, etc.). Users should be aware that data stored in sync storage may be accessible across devices signed in with the same browser account.
 
 ## User Control and Rights
 

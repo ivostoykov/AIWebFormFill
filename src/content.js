@@ -32,16 +32,17 @@ function setListner() {
     .catch(e => { console.log('>>>', e) });
 
   document.addEventListener('contextmenu', function (event) {
-    _field = event.target;
-    let attr = getThisField(event.target);
-    try {
-      if (!chrome.runtime.sendMessage) { throw new Error(`chrome.runtime.sendMessage is ${typeof (chrome?.runtime?.sendMessage)}`); }
-      chrome.runtime.sendMessage({ action: 'storeRightClickedElement', element: JSON.stringify([attr]) });
-    } catch (err) {
-      if (err.message === 'Extension context invalidated.') {
-        showMessage(`${err.message}. Please reload the page.`, 'error');
-      }
-      console.log(`>>> ${manifest?.name ?? ''}`, err);
+    const target = event.target;
+    if (!target) { return; }
+    const tagName = target.tagName?.toLowerCase();
+    if (!tagName) { return; }
+
+    const isEditable = tagName === 'input' || tagName === 'textarea' ||
+                      target.hasAttribute('contenteditable') ||
+                      target.getAttribute('role') === 'textbox';
+
+    if (isEditable) {
+      _field = target;
     }
   }, true);
 }
@@ -63,11 +64,37 @@ async function getLLMStudioOptions() {
   }
 }
 
-chrome.runtime.onMessage.addListener(function (request) {
+chrome.runtime.onMessage.addListener(function (request, _sender, sendResponse) {
   console.log(`${manifest.name ?? ''}: message:`, request);
   if (!request?.action) { return; }
 
   switch (request.action) {
+
+    case "getClickedElementData":
+      if (_field) {
+        const attr = getThisField(_field);
+        sendResponse(attr ? [attr] : null);
+      } else {
+        sendResponse(null);
+      }
+      return true;
+
+    case "copyToClipboard":
+      if (request.value && navigator.clipboard?.writeText) {
+        navigator.permissions.query({ name: 'clipboard-write' }).then(result => {
+          if (result.state === 'granted' || result.state === 'prompt') {
+            navigator.clipboard.writeText(request.value).then(() => {
+              showNotificationRibbon('Copied to clipboard', 'success');
+            }).catch(err => {
+              console.error(`${manifest.name ?? ''}: Clipboard write failed`, err);
+              showNotificationRibbon('Failed to copy to clipboard', 'error');
+            });
+          }
+        }).catch(() => {
+          showNotificationRibbon('Clipboard access denied', 'error');
+        });
+      }
+      break;
 
     case "showLoader":
       showLoader();
@@ -846,7 +873,7 @@ function findMatchingElement(elm) {
     for (const [key, value] of Object.entries(elementAttributes)) {
         if (attr2exclude.includes(key)) { continue; }
 
-        combinedSelector.push(`[${key}="${value}"]`);
+        combinedSelector.push(`[${CSS.escape(key)}="${CSS.escape(value)}"]`);
     }
 
     firstHit = document.querySelector(combinedSelector.join(''));
@@ -901,15 +928,6 @@ function fillFormWithProposedValues(formValues) {
         console.log(`${manifest?.name ?? ''}: Similarity ${suggestedValue.similarity} below threshold ${threshold} - skipping`);
         continue;
       }
-
-      if (document.hasFocus() && suggestedValue?.closest && suggestedValue?.closest !== 'unknown' && navigator.clipboard?.writeText) {
-        navigator.permissions.query({ name: 'clipboard-write' }).then(result => {
-          if (result.state === 'granted' || result.state === 'prompt') {
-            return navigator.clipboard.writeText(suggestedValue.closest);
-          }
-        }).catch(() => {});
-      }
-
 
       toFill.focus();
       showSimilarityHint(toFill, suggestedValue.similarity);
@@ -1104,6 +1122,7 @@ function setAutoProposalPosition(target, proposal){
 
 function handleInputFocusForAutoProposal(e) {
     cleanAutoProposal();
+    _field = e.target;
     let attr = getThisField(e.target);
     try {
         if(!chrome.runtime.sendMessage){  throw new Error(`chrome.runtime.sendMessage is ${typeof(chrome?.runtime?.sendMessage)}`);  }

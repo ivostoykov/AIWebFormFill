@@ -83,6 +83,16 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
             AIHelperSettings = await getAIHelperSettings();
             staticEmbeddings = {};
             dynamicEmbeddings = {};
+
+            setActiveUrl();
+            const provider = AIHelperSettings.embeddings?.filter(o => o.value === apiUrl)[0]?.text;
+            if(provider?.toLowerCase().indexOf('ollama') > -1) {
+                if(AIHelperSettings.model) {
+                    activeModel = AIHelperSettings.model;
+                }
+            } else {
+                activeModel = '';
+            }
         }
     }
 });

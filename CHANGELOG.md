@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.28.70] - 2025-02-16 - latest
+## [1.28.80] - 2025-03-09 - latest
+
+- Fixed IPv6 localhost detection (::1) to prevent false security warnings
+- Fixed embedding cache invalidation when provider/model changes via options page
+- Fixed stale backend selection after changing provider/model in options
+- Added security warnings for non-local/insecure embedding endpoints
+- Updated documentation to accurately describe sync storage behaviour
+- Refactored metadata collection to on-demand only (no longer automatic on right-click)
+- Separated clipboard operations into explicit context menu commands
+- Added CSS.escape() to prevent selector breakage with special characters
+- Added comprehensive testing infrastructure with 26 unit tests
+
+## [1.28.70] - 2025-02-16
 
 - Refactored to sendMessage architecture and removed executeScript calls
 - Added support for custom textbox components

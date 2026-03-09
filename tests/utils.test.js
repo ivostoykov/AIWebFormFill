@@ -28,6 +28,7 @@ describe('isLocalOrSecureEndpoint', () => {
   it('identifies IPv6 localhost (::1) correctly', () => {
     const result = isLocalOrSecureEndpoint('http://[::1]:8080');
     expect(result.hostname).toBe('[::1]');
+    expect(result.isLocal).toBe(true);
     expect(result.isSecure).toBe(false);
   });
 

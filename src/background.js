@@ -77,10 +77,12 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
         if (key === "AIFillForm") {
             AIFillFormOptions = {};
             AIFillFormOptions = await getOptions();
-            staticEmbeddings = {}; // need to clean it, otherwise will return the existing object
+            staticEmbeddings = {};
             isContextMenuCreated = false;
         } else {
             AIHelperSettings = await getAIHelperSettings();
+            staticEmbeddings = {};
+            dynamicEmbeddings = {};
         }
     }
 });

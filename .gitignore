@@ -14,7 +14,7 @@ url2check.txt
 
 # temp
 issue*.md
-review.md
+*review.md
 
 node_modules/
 coverage/

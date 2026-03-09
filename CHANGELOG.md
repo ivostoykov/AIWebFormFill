@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.28.80] - 2025-03-09 - latest
+## [1.28.80] - 2026-03-09 - latest
 
 - Fixed IPv6 localhost detection (::1) to prevent false security warnings
 - Fixed embedding cache invalidation when provider/model changes via options page

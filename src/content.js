@@ -139,8 +139,6 @@ chrome.runtime.onMessage.addListener(function (request, _sender, sendResponse) {
 
     case "fillFields":
       fillFormWithProposedValues(request.data);
-      hideLoader();
-      showNotificationRibbon('Form filling complete', 'success');
       break;
 
     case "clearFields":
@@ -891,6 +889,7 @@ function fillFormWithProposedValues(formValues) {
 
   var suggestedValue;
   var topField;
+  let filledCount = 0;
   try {
     for (let i = 0, l = formValues.length; i < l; i++) {
       let elm = formValues[i];
@@ -914,7 +913,7 @@ function fillFormWithProposedValues(formValues) {
       let toFill = findMatchingElement(elm)
       if (!toFill) {
         console.log(`${manifest?.name ?? ''}: No element found - skipping this field`);
-        continue; // Skip this field, continue with others
+        continue;
       }
       if(i < 1){  topField = toFill;  }
 
@@ -941,6 +940,7 @@ function fillFormWithProposedValues(formValues) {
       let event = new Event('input', { bubbles: true });
       toFill.dispatchEvent(event);
       toFill.blur();
+      filledCount++;
     }
 
     topField?.scrollIntoView();
@@ -949,6 +949,12 @@ function fillFormWithProposedValues(formValues) {
     console.error(`${manifest?.name ?? ''} >>> ${err.message}`, err);
   } finally {
     hideLoader();
+  }
+
+  if (filledCount > 0) {
+    showNotificationRibbon(`${filledCount} field${filledCount > 1 ? 's' : ''} filled`, 'success');
+  } else {
+    showMessage('No fields were filled', 'info');
   }
 }
 

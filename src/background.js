@@ -79,10 +79,12 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
             AIFillFormOptions = await getOptions();
             staticEmbeddings = {};
             isContextMenuCreated = false;
+            initCompleted = false;
         } else {
             AIHelperSettings = await getAIHelperSettings();
             staticEmbeddings = {};
             dynamicEmbeddings = {};
+            initCompleted = false;
 
             setActiveUrl();
             const provider = AIHelperSettings.embeddings?.filter(o => o.value === apiUrl)[0]?.text;
@@ -152,6 +154,14 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (tab.url && !(tab.url.startsWith('http') || tab.url.startsWith('file'))) { return; }
+
+    const requiresInit = ["fillthisform", "fillthisfield", "copyToClipboard", "fillAndCopyToClipboard", "fillAndMapField"].includes(info.menuItemId)
+        || /^value_/i.test(info.menuItemId);
+
+    if (requiresInit && !initCompleted) {
+        await init(tab);
+    }
+
     switch (info.menuItemId) {
 
         case "autoProposal":
@@ -641,7 +651,7 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
             }
         }
 
-        if (shouldCopyToClipboard && obj[0]) {
+        if (shouldCopyToClipboard) {
             let suggestedValue;
             try {
                 suggestedValue = JSON.parse(obj[0]?.data || '{}');
@@ -654,6 +664,8 @@ async function getAndProcessClickedElement(tab, info, shouldProcessElement = fal
                     action: 'copyToClipboard',
                     value: suggestedValue.closest
                 }, { frameId: info.frameId });
+            } else {
+                await showUIMessage(tab, 'No value available to copy', 'info');
             }
         }
 

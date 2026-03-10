@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.28.80] - 2026-03-09 - latest
+## [1.28.83] - 2026-03-10 - latest
+
+- replaced modal dialog with non-blocking ribbon
+- Fixed initialization race in data-dependent context menu
+- Feedback improved - success messages only shown when fields are actually filled
+- Simplified context menu
+- Eliminated unnecessary menu rebuilds
+- Menu now rebuilds only when dataset entries change
+- Added clipboard feedback for empty proposal scenarios
+- Added 23 integration tests
+- Expanded test coverage to 49 tests total (26 utils + 23 integration)
+
+## [1.28.80] - 2026-03-09
 
 - Fixed IPv6 localhost detection (::1) to prevent false security warnings
 - Fixed embedding cache invalidation when provider/model changes via options page

@@ -184,4 +184,87 @@ describe('Storage change resets initCompleted (real execution)', () => {
     );
     expect(elseSection).toContain('initCompleted = false');
   });
+
+  it('verifies menu rebuild only on AIFillForm change', () => {
+    const aiFillFormSection = storageChangeHandler.substring(
+      storageChangeHandler.indexOf('if (key === "AIFillForm")'),
+      storageChangeHandler.indexOf('} else {')
+    );
+    expect(aiFillFormSection).toContain('await createContextMenu()');
+
+    const elseSection = storageChangeHandler.substring(
+      storageChangeHandler.indexOf('} else {')
+    );
+    expect(elseSection).not.toContain('await createContextMenu()');
+  });
+});
+
+describe('Context menu simplification (real execution)', () => {
+  let backgroundCode;
+
+  beforeEach(() => {
+    backgroundCode = readFileSync(join(process.cwd(), 'src/background.js'), 'utf-8');
+  });
+
+  it('verifies no tab lifecycle event handlers for menu rebuild', () => {
+    expect(backgroundCode).not.toContain('chrome.tabs.onActivated.addListener');
+    expect(backgroundCode).not.toContain('chrome.tabs.onUpdated.addListener');
+    expect(backgroundCode).not.toContain('chrome.tabs.onCreated.addListener');
+  });
+
+  it('verifies no autoProposal menu item', () => {
+    const createMenuRegex = /async function createContextMenu\([\s\S]*?\n\}/;
+    const match = backgroundCode.match(createMenuRegex);
+    expect(match).toBeTruthy();
+    expect(match[0]).not.toContain('id: "autoProposal"');
+    expect(match[0]).not.toContain('Turn auto proposals');
+  });
+
+  it('verifies no addModelsMenu call', () => {
+    const createMenuRegex = /async function createContextMenu\([\s\S]*?\n\}/;
+    const match = backgroundCode.match(createMenuRegex);
+    expect(match).toBeTruthy();
+    expect(match[0]).not.toContain('await addModelsMenu');
+  });
+
+  it('verifies no provider change handler in click listener', () => {
+    const clickHandlerRegex = /chrome\.contextMenus\.onClicked\.addListener\(async \(info, tab\) => \{[\s\S]*?\}\);/;
+    const match = backgroundCode.match(clickHandlerRegex);
+    expect(match).toBeTruthy();
+    expect(match[0]).not.toContain('toggleAutoProposal');
+    expect(match[0]).not.toContain('tempChamgeApiProvider');
+    expect(match[0]).not.toContain('/^api_/i.test');
+  });
+
+  it('verifies menu creation on extension install', () => {
+    const installHandlerRegex = /chrome\.runtime\.onInstalled\.addListener\(async \(details\) => \{[\s\S]*?\}\);/;
+    const match = backgroundCode.match(installHandlerRegex);
+    expect(match).toBeTruthy();
+    expect(match[0]).toContain('await createContextMenu()');
+  });
+});
+
+describe('Modal dialog replacement (real execution)', () => {
+  let contentCode;
+
+  beforeEach(() => {
+    contentCode = readFileSync(join(process.cwd(), 'src/content.js'), 'utf-8');
+  });
+
+  it('verifies showMessage is not called for user feedback', () => {
+    const showMessageCalls = contentCode.match(/showMessage\(/g) || [];
+    expect(showMessageCalls.length).toBeLessThanOrEqual(2);
+  });
+
+  it('verifies showNotificationRibbon is used for errors', () => {
+    expect(contentCode).toContain("showNotificationRibbon(`${err.message}. Please reload the page.`, 'error')");
+  });
+
+  it('verifies showNotificationRibbon is used for info messages', () => {
+    expect(contentCode).toContain("showNotificationRibbon('No fields were filled', 'info')");
+  });
+
+  it('verifies showNotificationRibbon is used for warnings', () => {
+    expect(contentCode).toContain("showNotificationRibbon('No suitable values proposed for this form.', \"warn\")");
+  });
 });

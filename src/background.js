@@ -62,7 +62,8 @@ function cosineSimilarity(vecA, vecB) {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-chrome.runtime.onInstalled.addListener((details) => {
+chrome.runtime.onInstalled.addListener(async (details) => {
+    await createContextMenu();
     switch (details.reason) {
         case chrome.runtime.OnInstalledReason.INSTALL:
         case chrome.runtime.OnInstalledReason.UPDATE:
@@ -80,6 +81,7 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
             staticEmbeddings = {};
             isContextMenuCreated = false;
             initCompleted = false;
+            await createContextMenu();
         } else {
             AIHelperSettings = await getAIHelperSettings();
             staticEmbeddings = {};
@@ -99,22 +101,6 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
     }
 });
 
-chrome.tabs.onActivated.addListener(async (tab) => {
-    const theTab = await chrome.tabs.get(tab.tabId);
-    if (!theTab || theTab?.url.indexOf('http') !== 0) { return; }
-    if (!isContextMenuCreated) {
-        await createContextMenu(tab);
-    }
-    staticEmbeddings = await getStaticEmbeddings(tab);
-});
-
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (!isContextMenuCreated) {
-        await createContextMenu(tab);
-    }
-});
-
-chrome.tabs.onCreated.addListener(async (tab) => { isContextMenuCreated = false; });
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if (Object.keys(AIHelperSettings).length < 1) { await init(); }
@@ -164,10 +150,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     switch (info.menuItemId) {
 
-        case "autoProposal":
-            await toggleAutoProposal(info, tab);
-            break;
-
         case "fillthisform":
             await executeFormFillRequest(info, tab, 'fieldsCollected');
             break;
@@ -209,9 +191,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             break;
 
         default:
-            if (info.menuItemId && /^api_/i.test(info.menuItemId)) {
-                await tempChamgeApiProvider(tab, info);
-            } else if (info.menuItemId && /^value_/i.test(info.menuItemId)) {
+            if (info.menuItemId && /^value_/i.test(info.menuItemId)) {
                 const shouldLearn = AIHelperSettings?.autoLearn;
                 await getAndProcessClickedElement(tab, info, false, shouldLearn, false);
             } else {
@@ -296,19 +276,9 @@ async function createContextMenu(tab) {
 
         await addDataAsMenu(tab);
 
-        await addModelsMenu(tab);
-
         chrome.contextMenus.create({
             id: "separator1",
             type: "separator",
-            contexts: ["all"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
-        });
-
-        const mElm = AIHelperSettings?.calcOnLoad ? ['≁', 'Off'] : ['∼', 'On'];
-        chrome.contextMenus.create({
-            id: "autoProposal",
-            title: `${mElm[0]} Turn auto proposals: ${mElm[1]}`,
             contexts: ["all"],
             documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });

@@ -23,7 +23,7 @@ function setListner() {
           chrome.runtime.sendMessage({ action: 'toggleAutoProposals', autoProposalStatusChanged: true });
         } catch (err) {
           if (err.message === 'Extension context invalidated.') {
-            showMessage(`${err.message}. Please reload the page.`, 'error');
+            showNotificationRibbon(`${err.message}. Please reload the page.`, 'error');
           }
           console.log(`>>> ${manifest?.name ?? ''}`, err);
         }
@@ -126,7 +126,7 @@ chrome.runtime.onMessage.addListener(function (request, _sender, sendResponse) {
         chrome.runtime.sendMessage({ action: 'toggleAutoProposals', autoProposalStatusChanged: request?.calcOnLoad });
       } catch (err) {
         if (err.message === 'Extension context invalidated.') {
-          showMessage(`${err.message}. Please reload the page.`, 'error');
+          showNotificationRibbon(`${err.message}. Please reload the page.`, 'error');
         }
         console.log(`>>> ${manifest?.name ?? ''}`, err);
       }
@@ -540,7 +540,7 @@ function showCalculatedSimilarityAgain() {
       chrome.runtime.sendMessage({ action: "hideSimilatityHints" });
     } catch (err) {
       if (err.message === 'Extension context invalidated.') {
-        showMessage(`${err.message}. Please reload the page.`, 'error');
+        showNotificationRibbon(`${err.message}. Please reload the page.`, 'error');
       }
       console.log(`>>> ${manifest?.name ?? ''}`, err);
     }
@@ -837,7 +837,7 @@ function collectInputFields(doc, callbackAction) {
         chrome.runtime.sendMessage({ action: callbackAction, fields: JSON.stringify(inputFields) });
     } catch (err) {
         if(err.message === 'Extension context invalidated.'){
-            showMessage(`${err.message}. Please reload the page.`, 'error');
+            showNotificationRibbon(`${err.message}. Please reload the page.`, 'error');
         }
         console.log(`>>> ${manifest?.name ?? ''}`, err);
     }
@@ -882,7 +882,7 @@ function findMatchingElement(elm) {
 function fillFormWithProposedValues(formValues) {
   if (!Array.isArray(formValues)) { formValues = [formValues]; }
   if (formValues.length < 1) {
-    showMessage('No suitable values proposed for this form.', "warn");
+    showNotificationRibbon('No suitable values proposed for this form.', "warn");
     console.warn(`${manifest.name ?? ''}: No suitable values proposed for this form.`);
     return;
   }
@@ -954,7 +954,7 @@ function fillFormWithProposedValues(formValues) {
   if (filledCount > 0) {
     showNotificationRibbon(`${filledCount} field${filledCount > 1 ? 's' : ''} filled`, 'success');
   } else {
-    showMessage('No fields were filled', 'info');
+    showNotificationRibbon('No fields were filled', 'info');
   }
 }
 
@@ -977,7 +977,7 @@ function showFieldsMetadata() {
 
     inputs.forEach(el => showFormFieldHint(el));
     if(window === window.top){
-        showMessage('Click any hint to remove them.');
+        showNotificationRibbon('Click any hint to remove them.');
     }
 }
 
@@ -1135,7 +1135,7 @@ function handleInputFocusForAutoProposal(e) {
         chrome.runtime.sendMessage({ action: 'fillAutoProposal', element: JSON.stringify([attr]) });
     } catch (err) {
         if(err.message === 'Extension context invalidated.'){
-            showMessage(`${err.message}. Please reload the page.`, 'error');
+            showNotificationRibbon(`${err.message}. Please reload the page.`, 'error');
         }
         console.log(`>>> ${manifest?.name ?? ''}`, err);
     }
@@ -1201,7 +1201,7 @@ function applyProposal(e) {
                 chrome.runtime.sendMessage({ action: 'fillthisform' });
             } catch (err) {
                 if (err.message === 'Extension context invalidated.') {
-                    showMessage(`${err.message}. Please reload the page.`, 'error');
+                    showNotificationRibbon(`${err.message}. Please reload the page.`, 'error');
                 }
                 console.log(`>>> ${manifest?.name ?? ''}`, err);
             }

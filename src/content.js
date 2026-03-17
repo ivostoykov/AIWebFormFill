@@ -998,77 +998,30 @@ function setAutoSimilarityProposalOn(doc, isAuto = false) {
             input.removeEventListener('blur', cleanAutoProposal);
         }
     }
+
+    if (!isAuto) {
+        const existingProposal = document.querySelector('#proposal');
+        if (existingProposal) {
+            existingProposal.remove();
+        }
+    }
 }
 
-function getProposalStyle(){
-    const proposalStyle = document.createElement('style');
-    proposalStyle.textContent = `
-    .proposal-container:hover .icon {
-        display: none;
+function restoreOriginalPlaceholder(target) {
+    const originalPlaceholder = target.getAttribute('data-orig-placeholder');
+    if (originalPlaceholder !== null) {
+        target.placeholder = originalPlaceholder;
+        target.removeAttribute('data-orig-placeholder');
     }
-
-    .proposal-container:not(:hover) .icon {
-        display: inline-block;
-        width: 100%;
-        height: 100%;
-        padding: .03rem;
-    }
-
-    .proposal-container {
-        position: absolute;
-        border: 1px solid gray;
-        background-color: #fffbcb;
-        width: 0px;
-        height: 20px;
-        overflow: hidden;
-        text-align: left;
-        padding: .5em;
-        z-index: 999999;
-        animation: shring-width 0.3s forwards;
-        box-sizing: unset;
-    }
-
-    .proposal-container:hover{
-        animation: expand-width 0.3s forwards;
-        overflow: auto
-    }
-
-    @keyframes expand-width {
-        95% {
-            width: 200px;
-        }
-        100% {
-            height: 30px;
-            width: max-content;
-        }
-    }
-
-    @keyframes shring-width {
-        from {
-            width: 0px;
-        }
-        100% {
-            width: 20px;
-            height: 20px;
-        }
-    }
-
-    .proposal-btn {
-        font-size: 1.3rem;
-        cursor: pointer;
-        display: inline-block;
-        padding: 0 5px;
-    }
-
-    .prop-value {
-        min-width: 50px;
-        display: inline-block;
-    }`;
-
-    return proposalStyle;
+    target.removeAttribute('data-suggestion');
 }
 
 function cleanAutoProposal(e){
+    const target = e?.target;
+    if (target && target.hasAttribute('data-suggestion')) {
+        restoreOriginalPlaceholder(target);
+    }
+
     const existingProposal = document.querySelector('#proposal');
     if(!existingProposal){  return;  }
     if (existingProposal?.contains(e?.relatedTarget)) {
@@ -1086,7 +1039,6 @@ function getAutoProposalElement(proposalText){
     if (document.getElementById(id)) { cleanAutoProposal(); }
     const proposal = document.createElement('div');
     proposal.id = id;
-    proposal.appendChild(getProposalStyle());
     proposal.classList.add('proposal-container');
 
     const children = [
@@ -1119,9 +1071,37 @@ function getAutoProposalElement(proposalText){
 }
 
 function setAutoProposalPosition(target, proposal){
-    let rect = target.getBoundingClientRect();
-    const proposalTop = window.scrollY + rect.top;
-    const proposalLeft = window.scrollX + rect.left + rect.width + 2;
+    const rect = target.getBoundingClientRect();
+    const proposalMinWidth = 200;
+    const proposalHeight = 30;
+    const spacing = 2;
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const spaceOnRight = viewportWidth - rect.right;
+    const spaceOnLeft = rect.left;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    let proposalTop, proposalLeft;
+
+    if (spaceOnRight >= proposalMinWidth) {
+        proposalLeft = window.scrollX + rect.right + spacing;
+        proposalTop = window.scrollY + rect.top;
+    } else if (spaceOnLeft >= proposalMinWidth) {
+        proposalLeft = window.scrollX + rect.left - proposalMinWidth - spacing;
+        proposalTop = window.scrollY + rect.top;
+    } else if (spaceBelow >= proposalHeight) {
+        proposalLeft = window.scrollX + rect.left;
+        proposalTop = window.scrollY + rect.bottom + spacing;
+    } else if (spaceAbove >= proposalHeight) {
+        proposalLeft = window.scrollX + rect.left;
+        proposalTop = window.scrollY + rect.top - proposalHeight - spacing;
+    } else {
+        proposalLeft = window.scrollX + rect.left;
+        proposalTop = window.scrollY + rect.top + (rect.height / 2) - (proposalHeight / 2);
+    }
 
     proposal.style.top = `${proposalTop}px`;
     proposal.style.left = `${proposalLeft}px`;
@@ -1143,7 +1123,6 @@ function handleInputFocusForAutoProposal(e) {
 }
 
 function showProposal(el){
-    if(document.getElementById('proposal')){  return;  }
     if(!el){  return;  }
     if(!AIHelperSettings?.calcOnLoad){  return;  }
     if(Array.isArray(el) && el.length > 0){  el = el[0];  }
@@ -1165,15 +1144,14 @@ function showProposal(el){
     let target = findMatchingElement(el);
     if(!target){  return;  }
 
-    let proposal = getAutoProposalElement(data.closest);
-    if(proposal){
-        setAutoProposalPosition(target, proposal);
-        document.body.appendChild(proposal);
-    }
+    if(!data?.closest || data.closest.trim() === ''){  return;  }
 
-    proposal.querySelector('#pasteProposal').addEventListener('mousedown', (e) => {  handlePasteAutoProposal(e, target);  });
-    proposal.querySelector('#appendProposal').addEventListener('mousedown', (e) => {  handlePasteAutoProposal(e, target);  });
-    proposal.querySelector('#ignoreProposal').addEventListener('click', (e) => {handleIgnoreAutoProposal(e);  });
+    if(target.value && target.value.trim() !== ''){  return;  }
+
+    const originalPlaceholder = target.placeholder || '';
+    target.setAttribute('data-orig-placeholder', originalPlaceholder);
+    target.setAttribute('data-suggestion', data.closest);
+    target.placeholder = `${data.closest} (apply with Enter or Tab)`;
 }
 
 function handlePasteAutoProposal(e, target) {
@@ -1189,6 +1167,29 @@ function handleIgnoreAutoProposal(e) {
 }
 
 function applyProposal(e) {
+    const target = e.target;
+    const suggestion = target.getAttribute('data-suggestion');
+
+    if (suggestion && (e.key === 'Enter' || e.key === 'Tab')) {
+        if (!target.value || target.value.trim() === '') {
+            e.preventDefault();
+            target.value = suggestion;
+            restoreOriginalPlaceholder(target);
+            if (e.key === 'Tab') {
+                const form = target.form;
+                if (form) {
+                    const elements = Array.from(form.elements);
+                    const currentIndex = elements.indexOf(target);
+                    const nextElement = elements[currentIndex + 1];
+                    if (nextElement && nextElement.focus) {
+                        nextElement.focus();
+                    }
+                }
+            }
+        }
+        return;
+    }
+
     if (!e.ctrlKey || !e.shiftKey) { return; }
 
     switch (e.key) {

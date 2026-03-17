@@ -97,6 +97,15 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
             } else {
                 activeModel = '';
             }
+
+            const autoSuggestStatus = AIHelperSettings.calcOnLoad ? "On" : "Off";
+            try {
+                await chrome.contextMenus.update("toggleAutoSuggestions", {
+                    title: `💡 Auto-suggestions: ${autoSuggestStatus}`
+                });
+            } catch (err) {
+                console.error(`${manifest.name ?? ''}: Failed to update menu title`, err);
+            }
         }
     }
 });
@@ -141,7 +150,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (tab.url && !(tab.url.startsWith('http') || tab.url.startsWith('file'))) { return; }
 
-    const requiresInit = ["fillthisform", "fillthisfield", "copyToClipboard", "fillAndCopyToClipboard", "fillAndMapField"].includes(info.menuItemId)
+    const requiresInit = ["fillthisform", "fillthisfield", "copyToClipboard", "fillAndCopyToClipboard", "fillAndMapField", "toggleAutoSuggestions"].includes(info.menuItemId)
         || /^value_/i.test(info.menuItemId);
 
     if (requiresInit && !initCompleted) {

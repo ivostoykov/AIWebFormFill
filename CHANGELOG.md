@@ -9,7 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.28.83] - 2026-03-10 - latest
+## [1.29.10] - 2026-03-17 - latest
+
+- Added context menu toggle for auto-suggestions (on/off)
+- Fixed settings preservation when toggling auto-suggestions after service worker restart
+- Fixed content script state synchronisation for auto-suggestions toggle
+- Added export functionality for dataset entries
+- Added import functionality for dataset entries
+- Fixed minor issues in import process
+
+## [1.28.83] - 2026-03-10
 
 - replaced modal dialog with non-blocking ribbon
 - Fixed initialization race in data-dependent context menu

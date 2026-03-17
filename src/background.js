@@ -97,6 +97,15 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
             } else {
                 activeModel = '';
             }
+
+            const autoSuggestStatus = AIHelperSettings.calcOnLoad ? "On" : "Off";
+            try {
+                await chrome.contextMenus.update("toggleAutoSuggestions", {
+                    title: `💡 Auto-suggestions: ${autoSuggestStatus}`
+                });
+            } catch (err) {
+                console.error(`${manifest.name ?? ''}: Failed to update menu title`, err);
+            }
         }
     }
 });
@@ -141,7 +150,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (tab.url && !(tab.url.startsWith('http') || tab.url.startsWith('file'))) { return; }
 
-    const requiresInit = ["fillthisform", "fillthisfield", "copyToClipboard", "fillAndCopyToClipboard", "fillAndMapField"].includes(info.menuItemId)
+    const requiresInit = ["fillthisform", "fillthisfield", "copyToClipboard", "fillAndCopyToClipboard", "fillAndMapField", "toggleAutoSuggestions"].includes(info.menuItemId)
         || /^value_/i.test(info.menuItemId);
 
     if (requiresInit && !initCompleted) {
@@ -180,6 +189,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
         case "showSimilarityAgain":
             await showSimilarityAgain(info, tab);
+            break;
+
+        case "toggleAutoSuggestions":
+            await toggleAutoSuggestions(tab);
             break;
 
         case "openOptions":
@@ -279,6 +292,14 @@ async function createContextMenu(tab) {
         chrome.contextMenus.create({
             id: "separator1",
             type: "separator",
+            contexts: ["all"],
+            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
+        });
+
+        const autoSuggestStatus = AIHelperSettings.calcOnLoad ? "On" : "Off";
+        chrome.contextMenus.create({
+            id: "toggleAutoSuggestions",
+            title: `💡 Auto-suggestions: ${autoSuggestStatus}`,
             contexts: ["all"],
             documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
@@ -1137,6 +1158,28 @@ async function execAutoSimilarityProposals(info, sender) {
         });
     } catch (e) {
         console.error(`${manifest.name ?? ''}`, e)
+    }
+}
+
+async function toggleAutoSuggestions(tab) {
+    AIHelperSettings.calcOnLoad = !AIHelperSettings?.calcOnLoad;
+
+    const newTitle = AIHelperSettings.calcOnLoad ? "💡 Auto-suggestions: On" : "💡 Auto-suggestions: Off";
+    chrome.contextMenus.update("toggleAutoSuggestions", { title: newTitle });
+
+    try {
+        await chrome.storage.sync.set({ [AIsettingsStorageKey]: AIHelperSettings });
+    } catch (err) {
+        console.error(`${manifest.name ?? ''}: Failed to save settings`, err);
+    }
+
+    try {
+        await chrome.tabs.sendMessage(tab.id, {
+            action: 'toggleAutoProposals',
+            enabled: AIHelperSettings.calcOnLoad
+        });
+    } catch (err) {
+        console.error(`${manifest.name ?? ''}: Failed to notify content script`, err);
     }
 }
 

@@ -158,6 +158,7 @@ chrome.runtime.onMessage.addListener(function (request, _sender, sendResponse) {
       break;
 
     case "toggleAutoProposals":
+      AIHelperSettings.calcOnLoad = request.enabled;
       setAutoSimilarityProposalOn(document, request.enabled);
       break;
 

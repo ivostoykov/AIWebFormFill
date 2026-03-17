@@ -38,11 +38,22 @@ document.addEventListener("DOMContentLoaded", () => {
     embeddingsEndPointList?.parentElement.querySelectorAll('img').forEach(img => img.addEventListener('click', onEmbeddingsButtonClick));
     document.querySelectorAll('.dialog-button').forEach(btn => btn.addEventListener('click', dialogButtonClicked));
 
+    const refreshModelsBtn = document.querySelector('#refreshModels');
+    refreshModelsBtn?.addEventListener('click', async e => await fillModelList());
+
     document.querySelector(".save").addEventListener("click", async e => await saveSettings(e));
 
     document.querySelector(".cancel").addEventListener("click", (e) => {
         document.getElementById('jsonInput').value = JSON.stringify(defaultFormFields, null, 4);
-    }); 
+    });
+
+    document.querySelector(".export").addEventListener("click", async (e) => await exportSettings(e));
+
+    document.querySelector(".import").addEventListener("click", (e) => {
+        document.getElementById('importFile').click();
+    });
+
+    document.getElementById('importFile').addEventListener("change", async (e) => await importSettings(e));
 
     function showMessage(msg, type) {
         messageRibbon.textContent = msg;
@@ -177,6 +188,9 @@ document.addEventListener("DOMContentLoaded", () => {
         url.pop();
         url.push('tags');
         url = url.join('/');
+
+        // Clear existing models before repopulating
+        modelList.replaceChildren();
 
         let idx = -1;
         const models = await fetchModels(url);
@@ -440,5 +454,271 @@ document.addEventListener("DOMContentLoaded", () => {
 
         embeddings.appendChild(o);
         dlg.close();
+    }
+
+    async function exportSettings(e) {
+        try {
+            const manifest = chrome.runtime.getManifest();
+            if (!manifest) {
+                throw new Error('Failed to retrieve extension manifest');
+            }
+
+            const exportData = {};
+
+            // Gather all form field values
+            document.querySelectorAll('input[type="text"]').forEach(el => {
+                if (el.id && el.id !== 'importFile') {
+                    exportData[el.id] = el.value;
+                }
+            });
+
+            document.querySelectorAll('input[type="number"]').forEach(el => {
+                if (el.id) {
+                    exportData[el.id] = el.value;
+                }
+            });
+
+            document.querySelectorAll('input[type="checkbox"]').forEach(el => {
+                if (el.id) {
+                    exportData[el.id] = el.checked;
+                }
+            });
+
+            // Handle embeddings select
+            const embeddings = document.querySelector('#embeddings');
+            if (embeddings) {
+                const embeddingsData = [];
+                embeddings.querySelectorAll('option').forEach(el => {
+                    if (el?.value?.trim() !== '') {
+                        embeddingsData.push({
+                            "text": el.text,
+                            "value": el.value,
+                            "selected": el.selected
+                        });
+                    }
+                });
+                if (embeddingsData.length > 0) {
+                    exportData[embeddings.id] = embeddingsData;
+                }
+            }
+
+            // Handle model list select - only export the selected model
+            const modelList = document.querySelector('#modelList');
+            if (modelList && modelList.selectedIndex >= 0) {
+                const selectedOption = modelList.options[modelList.selectedIndex];
+                if (selectedOption.value) {
+                    exportData['modelList'] = [{
+                        "text": selectedOption.text,
+                        "value": selectedOption.value,
+                        "selected": true
+                    }];
+                }
+            }
+
+            // Handle JSON input (form fields)
+            const jsonInput = document.getElementById('jsonInput');
+            if (jsonInput && jsonInput.value.trim()) {
+                try {
+                    const parsedJson = JSON.parse(jsonInput.value);
+                    exportData[jsonInput.id] = parsedJson;
+                } catch (err) {
+                    console.warn('Failed to parse jsonInput, storing as string:', err);
+                    exportData[jsonInput.id] = jsonInput.value;
+                }
+            }
+
+            // Validate we have some data to export
+            if (Object.keys(exportData).length === 0) {
+                throw new Error('No settings to export');
+            }
+
+            // Create filename
+            const version = (manifest.version || '0_0_0').replace(/\./g, '_');
+            const name = (manifest.name || 'settings').replace(/\s+/g, '_').replace(/\./g, '_');
+            const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const filename = `${name}_${version}_${date}.json`;
+
+            // Download file
+            let jsonString;
+            try {
+                jsonString = JSON.stringify(exportData, null, 2);
+            } catch (stringifyError) {
+                throw new Error('Failed to serialize settings: ' + stringifyError.message);
+            }
+
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showMessage('Settings exported successfully!', 'success');
+        } catch (error) {
+            console.error('Export error:', error);
+            showMessage('Export failed: ' + error.message, 'error');
+        }
+    }
+
+    async function importSettings(e) {
+        try {
+            const file = e.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            // Validate file is JSON
+            if (!file.name.toLowerCase().endsWith('.json')) {
+                showMessage('Import failed: Please select a JSON file', 'error');
+                e.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    let importData;
+
+                    // Parse JSON with error handling
+                    try {
+                        importData = JSON.parse(event.target.result);
+                    } catch (parseError) {
+                        throw new Error('Invalid JSON format: ' + parseError.message);
+                    }
+
+                    // Validate the imported data structure
+                    if (typeof importData !== 'object' || importData === null) {
+                        throw new Error('Invalid settings file: expected an object');
+                    }
+
+                    if (Object.keys(importData).length === 0) {
+                        throw new Error('Settings file is empty');
+                    }
+
+                    let hasOllamaProvider = false;
+                    let importedModelValue = null;
+                    let importedFieldsCount = 0;
+
+                    for (const [key, value] of Object.entries(importData)) {
+                        const el = document.getElementById(key);
+                        if (!el && key !== 'modelList') { continue; }
+
+                        if (key === 'embeddings') {
+                            if (!Array.isArray(value)) {
+                                console.warn('embeddings should be an array, skipping');
+                                continue;
+                            }
+                            fillEmbeddingsOption(el, value);
+
+                            value.forEach(item => {
+                                if (item.selected && item.text && item.text.toLowerCase().indexOf('ollama') > -1) {
+                                    hasOllamaProvider = true;
+                                }
+                            });
+
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                            importedFieldsCount++;
+                        } else if (key === 'modelList') {
+                            if (!Array.isArray(value)) {
+                                console.warn('modelList should be an array, skipping');
+                                continue;
+                            }
+                            if (value.length > 0 && value[0].value) {
+                                importedModelValue = value[0].value;
+                                importedFieldsCount++;
+                            }
+                        } else if (key === 'jsonInput') {
+                            if (typeof value === 'object') {
+                                for (const [fieldKey, fieldValue] of Object.entries(value)) {
+                                    if (!Array.isArray(fieldValue)) {
+                                        throw new Error(`Invalid format in jsonInput: "${fieldKey}" must be an array of field names`);
+                                    }
+                                }
+                                el.value = JSON.stringify(value, null, 4);
+                            } else if (typeof value === 'string') {
+                                el.value = value;
+                            }
+                            importedFieldsCount++;
+                        } else if (el.type === 'checkbox') {
+                            el.checked = Boolean(value);
+                            importedFieldsCount++;
+                        } else if (el.type === 'number') {
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue)) {
+                                el.value = numValue;
+                                importedFieldsCount++;
+                            }
+                        } else {
+                            el.value = value;
+                            importedFieldsCount++;
+                        }
+                    }
+
+                    if (importedModelValue && hasOllamaProvider) {
+                        const modelList = document.querySelector('#modelList');
+                        if (modelList) {
+                            const startTime = Date.now();
+                            const timeout = 5000;
+
+                            while (modelList.options.length === 0 && (Date.now() - startTime) < timeout) {
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                            }
+
+                            if (modelList.options.length > 0) {
+                                let modelFound = false;
+                                for (let i = 0; i < modelList.options.length; i++) {
+                                    if (modelList.options[i].value === importedModelValue) {
+                                        modelList.selectedIndex = i;
+                                        modelFound = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!modelFound) {
+                                    console.warn(`Model "${importedModelValue}" not found in current Ollama models`);
+                                }
+                            } else {
+                                console.warn('Model list did not populate within timeout period');
+                            }
+                        }
+                    }
+
+                    e.target.value = '';
+
+                    if (importedFieldsCount === 0) {
+                        throw new Error('No valid settings found in the file');
+                    }
+
+                    let message = 'Import completed successfully! ';
+                    if (hasOllamaProvider) {
+                        message += 'Please check the Ollama model selection and adjust if needed. ';
+                    }
+                    message += 'Click Save to apply the changes.';
+
+                    showMessage(message, 'info');
+                } catch (error) {
+                    console.error('Import error:', error);
+                    showMessage('Import failed: ' + error.message, 'error');
+                    e.target.value = '';
+                }
+            };
+
+            reader.onerror = (error) => {
+                console.error('File read error:', error);
+                showMessage('Failed to read file: ' + (error.message || 'Unknown error'), 'error');
+                e.target.value = '';
+            };
+
+            reader.readAsText(file);
+        } catch (error) {
+            console.error('Import exception:', error);
+            showMessage('Import failed: ' + error.message, 'error');
+            if (e.target) {
+                e.target.value = '';
+            }
+        }
     }
 });

@@ -50,7 +50,8 @@
 
                     <div id="modelsRow" class="row obscured">
                         <select name="modelList" id="modelList"></select>
-                        <label class="field-label" for="modelList">Ollama models list</label>
+                        <img src="img/refresh.svg" id="refreshModels" class="model-icon-button" alt="Refresh models" title="Refresh models list">
+                        <label class="field-label" for="modelList">Models list</label>
                     </div>
 
                     <div class="row">
@@ -73,6 +74,10 @@
                     <div class="form-buttons">
                         <button type="button" class="save">Save</button>
                         <button type="button" class="cancel">Reset</button>
+                        <span style="margin: 0 10px;"></span>
+                        <button type="button" class="export">Export</button>
+                        <button type="button" class="import">Import</button>
+                        <input type="file" id="importFile" accept=".json" style="display: none;">
                     </div>
                 </div>
             </form>

@@ -19,3 +19,4 @@ issue*.md
 node_modules/
 coverage/
 .vitest-cache/
+.claude/

@@ -189,6 +189,9 @@ document.addEventListener("DOMContentLoaded", () => {
         url.push('tags');
         url = url.join('/');
 
+        // Clear existing models before repopulating
+        modelList.replaceChildren();
+
         let idx = -1;
         const models = await fetchModels(url);
         if(!Array.isArray(models)){  models = [models]; }
@@ -597,11 +600,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     let hasOllamaProvider = false;
                     let importedModelValue = null;
+                    let importedFieldsCount = 0;
 
-                    // Apply settings to form fields
                     for (const [key, value] of Object.entries(importData)) {
                         const el = document.getElementById(key);
-                        if (!el) { continue; }
+                        if (!el && key !== 'modelList') { continue; }
 
                         if (key === 'embeddings') {
                             if (!Array.isArray(value)) {
@@ -610,7 +613,6 @@ document.addEventListener("DOMContentLoaded", () => {
                             }
                             fillEmbeddingsOption(el, value);
 
-                            // Check if any provider is Ollama
                             value.forEach(item => {
                                 if (item.selected && item.text && item.text.toLowerCase().indexOf('ollama') > -1) {
                                     hasOllamaProvider = true;
@@ -618,18 +620,18 @@ document.addEventListener("DOMContentLoaded", () => {
                             });
 
                             el.dispatchEvent(new Event('change', { bubbles: true }));
+                            importedFieldsCount++;
                         } else if (key === 'modelList') {
                             if (!Array.isArray(value)) {
                                 console.warn('modelList should be an array, skipping');
                                 continue;
                             }
-                            // Store model value to handle after embeddings are loaded
                             if (value.length > 0 && value[0].value) {
                                 importedModelValue = value[0].value;
+                                importedFieldsCount++;
                             }
                         } else if (key === 'jsonInput') {
                             if (typeof value === 'object') {
-                                // Validate JSON structure for form fields
                                 for (const [fieldKey, fieldValue] of Object.entries(value)) {
                                     if (!Array.isArray(fieldValue)) {
                                         throw new Error(`Invalid format in jsonInput: "${fieldKey}" must be an array of field names`);
@@ -639,45 +641,57 @@ document.addEventListener("DOMContentLoaded", () => {
                             } else if (typeof value === 'string') {
                                 el.value = value;
                             }
+                            importedFieldsCount++;
                         } else if (el.type === 'checkbox') {
                             el.checked = Boolean(value);
+                            importedFieldsCount++;
                         } else if (el.type === 'number') {
                             const numValue = parseFloat(value);
                             if (!isNaN(numValue)) {
                                 el.value = numValue;
+                                importedFieldsCount++;
                             }
                         } else {
                             el.value = value;
+                            importedFieldsCount++;
                         }
                     }
 
-                    // If model was imported and Ollama is provider, wait for model list to populate
                     if (importedModelValue && hasOllamaProvider) {
-                        // Wait a bit for the model list to be populated
-                        await new Promise(resolve => setTimeout(resolve, 500));
-
                         const modelList = document.querySelector('#modelList');
-                        if (modelList && modelList.options.length > 0) {
-                            // Try to find and select the imported model
-                            let modelFound = false;
-                            for (let i = 0; i < modelList.options.length; i++) {
-                                if (modelList.options[i].value === importedModelValue) {
-                                    modelList.selectedIndex = i;
-                                    modelFound = true;
-                                    break;
-                                }
+                        if (modelList) {
+                            const startTime = Date.now();
+                            const timeout = 5000;
+
+                            while (modelList.options.length === 0 && (Date.now() - startTime) < timeout) {
+                                await new Promise(resolve => setTimeout(resolve, 100));
                             }
 
-                            if (!modelFound) {
-                                console.warn(`Model "${importedModelValue}" not found in current Ollama models`);
+                            if (modelList.options.length > 0) {
+                                let modelFound = false;
+                                for (let i = 0; i < modelList.options.length; i++) {
+                                    if (modelList.options[i].value === importedModelValue) {
+                                        modelList.selectedIndex = i;
+                                        modelFound = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!modelFound) {
+                                    console.warn(`Model "${importedModelValue}" not found in current Ollama models`);
+                                }
+                            } else {
+                                console.warn('Model list did not populate within timeout period');
                             }
                         }
                     }
 
-                    // Reset file input
                     e.target.value = '';
 
-                    // Show success message with reminder to check models
+                    if (importedFieldsCount === 0) {
+                        throw new Error('No valid settings found in the file');
+                    }
+
                     let message = 'Import completed successfully! ';
                     if (hasOllamaProvider) {
                         message += 'Please check the Ollama model selection and adjust if needed. ';

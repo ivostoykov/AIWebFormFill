@@ -984,7 +984,7 @@ function showFieldsMetadata() {
 
 function setAutoSimilarityProposalOn(doc, isAuto = false) {
     if (!doc) { doc = document; }
-    let inputs = Array.from(doc.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"], textarea, [role="textbox"], [contenteditable="true"]'));
+    let inputs = Array.from(doc.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"], textarea'));
     if (!inputs) { return; }
     for (let i = 0; i < inputs.length; i++) {
         const input = inputs[i];
@@ -998,133 +998,36 @@ function setAutoSimilarityProposalOn(doc, isAuto = false) {
             input.removeEventListener('blur', cleanAutoProposal);
         }
     }
+
+    if (!isAuto) {
+        const existingProposal = document.querySelector('#proposal');
+        if (existingProposal) {
+            existingProposal.remove();
+        }
+    }
 }
 
-function getProposalStyle(){
-    const proposalStyle = document.createElement('style');
-    proposalStyle.textContent = `
-    .proposal-container:hover .icon {
-        display: none;
+function restoreOriginalPlaceholder(target) {
+    const originalPlaceholder = target.getAttribute('data-orig-placeholder');
+    if (originalPlaceholder !== null) {
+        target.placeholder = originalPlaceholder;
+        target.removeAttribute('data-orig-placeholder');
     }
-
-    .proposal-container:not(:hover) .icon {
-        display: inline-block;
-        width: 100%;
-        height: 100%;
-        padding: .03rem;
-    }
-
-    .proposal-container {
-        position: absolute;
-        border: 1px solid gray;
-        background-color: #fffbcb;
-        width: 0px;
-        height: 20px;
-        overflow: hidden;
-        text-align: left;
-        padding: .5em;
-        z-index: 999999;
-        animation: shring-width 0.3s forwards;
-        box-sizing: unset;
-    }
-
-    .proposal-container:hover{
-        animation: expand-width 0.3s forwards;
-        overflow: auto
-    }
-
-    @keyframes expand-width {
-        95% {
-            width: 200px;
-        }
-        100% {
-            height: 30px;
-            width: max-content;
-        }
-    }
-
-    @keyframes shring-width {
-        from {
-            width: 0px;
-        }
-        100% {
-            width: 20px;
-            height: 20px;
-        }
-    }
-
-    .proposal-btn {
-        font-size: 1.3rem;
-        cursor: pointer;
-        display: inline-block;
-        padding: 0 5px;
-    }
-
-    .prop-value {
-        min-width: 50px;
-        display: inline-block;
-    }`;
-
-    return proposalStyle;
+    target.removeAttribute('data-suggestion');
 }
 
 function cleanAutoProposal(e){
+    const target = e?.target;
+    if (target && target.hasAttribute('data-suggestion')) {
+        restoreOriginalPlaceholder(target);
+    }
+
     const existingProposal = document.querySelector('#proposal');
     if(!existingProposal){  return;  }
     if (existingProposal?.contains(e?.relatedTarget)) {
         return;
     }
     if (existingProposal) { existingProposal.remove(); }
-}
-
-function getAutoProposalElement(proposalText){
-    if (!document.body) {
-        return null;
-    }
-
-    const id = 'proposal';
-    if (document.getElementById(id)) { cleanAutoProposal(); }
-    const proposal = document.createElement('div');
-    proposal.id = id;
-    proposal.appendChild(getProposalStyle());
-    proposal.classList.add('proposal-container');
-
-    const children = [
-        {id:"flashIcon", class:"icon", title: "Show proposal", text: '⚡'},
-        {id:"pasteProposal", class:"proposal-btn", title: "Replace proposal", text: '⇽'},
-        {id:"appendProposal", class: "proposal-btn", title:"Append proposal", text: '⤶'},
-        {id:"ignoreProposal", class: "proposal-btn", title:"Ignore proposal", text: '⨉'},
-        {id:"proposalValue", class: "prop-value", text: proposalText}
-    ];
-    for (let i = 0; i < children.length; i++) {
-        const el = children[i];
-        let child = document.createElement('div');
-        for (const [key, value] of Object.entries(el)) {
-            switch (key) {
-                case 'class':
-                    child.classList.add(value);
-                    break;
-                case 'text':
-                    child.textContent = value ?? '';
-                    break;
-                default:
-                    child[key] = value;
-                    break;
-            }
-        }
-        proposal.appendChild(child);
-    }
-
-    return proposal;
-}
-
-function setAutoProposalPosition(target, proposal){
-    let rect = target.getBoundingClientRect();
-    const proposalTop = window.scrollY + rect.top;
-    const proposalLeft = window.scrollX + rect.left + rect.width + 2;
-
-    proposal.style.top = `${proposalTop}px`;
-    proposal.style.left = `${proposalLeft}px`;
 }
 
 function handleInputFocusForAutoProposal(e) {
@@ -1143,7 +1046,6 @@ function handleInputFocusForAutoProposal(e) {
 }
 
 function showProposal(el){
-    if(document.getElementById('proposal')){  return;  }
     if(!el){  return;  }
     if(!AIHelperSettings?.calcOnLoad){  return;  }
     if(Array.isArray(el) && el.length > 0){  el = el[0];  }
@@ -1165,63 +1067,54 @@ function showProposal(el){
     let target = findMatchingElement(el);
     if(!target){  return;  }
 
-    let proposal = getAutoProposalElement(data.closest);
-    if(proposal){
-        setAutoProposalPosition(target, proposal);
-        document.body.appendChild(proposal);
-    }
+    if(!data?.closest || data.closest.trim() === ''){  return;  }
 
-    proposal.querySelector('#pasteProposal').addEventListener('mousedown', (e) => {  handlePasteAutoProposal(e, target);  });
-    proposal.querySelector('#appendProposal').addEventListener('mousedown', (e) => {  handlePasteAutoProposal(e, target);  });
-    proposal.querySelector('#ignoreProposal').addEventListener('click', (e) => {handleIgnoreAutoProposal(e);  });
-}
+    if(target.value && target.value.trim() !== ''){  return;  }
 
-function handlePasteAutoProposal(e, target) {
-    const propValue = e.target.parentElement.querySelector('div.prop-value').textContent;
-    if(!target){  return;  }
-
-    const newValue = `${e.target.id === 'pasteProposal' ? '' : target.value} ${propValue}`.trim();
-    target.value = newValue;
-}
-
-function handleIgnoreAutoProposal(e) {
-    e.target.closest('div#proposal').remove();
+    const originalPlaceholder = target.placeholder || '';
+    target.setAttribute('data-orig-placeholder', originalPlaceholder);
+    target.setAttribute('data-suggestion', data.closest);
+    target.placeholder = `${data.closest} (apply with Enter or Tab)`;
 }
 
 function applyProposal(e) {
+    const target = e.target;
+    const suggestion = target.getAttribute('data-suggestion');
+
+    if (suggestion && (e.key === 'Enter' || e.key === 'Tab')) {
+        if (!target.value || target.value.trim() === '') {
+            target.value = suggestion;
+            restoreOriginalPlaceholder(target);
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            } else if (e.key === 'Tab') {
+                const form = target.form;
+                if (form) {
+                    e.preventDefault();
+                    const elements = Array.from(form.elements);
+                    const currentIndex = elements.indexOf(target);
+                    const nextElement = elements[currentIndex + 1];
+                    if (nextElement && nextElement.focus) {
+                        nextElement.focus();
+                    }
+                }
+            }
+        }
+        return;
+    }
+
     if (!e.ctrlKey || !e.shiftKey) { return; }
 
-    switch (e.key) {
-        case 'ArrowLeft':
-        case 'ArrowRight':
-            applyPasteProposal(e);
-            break;
-        case 'Enter':
-            try {
-                if (!chrome.runtime.sendMessage) { throw new Error(`chrome.runtime.sendMessage is ${typeof (chrome?.runtime?.sendMessage)}`); }
-                chrome.runtime.sendMessage({ action: 'fillthisform' });
-            } catch (err) {
-                if (err.message === 'Extension context invalidated.') {
-                    showNotificationRibbon(`${err.message}. Please reload the page.`, 'error');
-                }
-                console.log(`>>> ${manifest?.name ?? ''}`, err);
+    if (e.key === 'Enter') {
+        try {
+            if (!chrome.runtime.sendMessage) { throw new Error(`chrome.runtime.sendMessage is ${typeof (chrome?.runtime?.sendMessage)}`); }
+            chrome.runtime.sendMessage({ action: 'fillthisform' });
+        } catch (err) {
+            if (err.message === 'Extension context invalidated.') {
+                showNotificationRibbon(`${err.message}. Please reload the page.`, 'error');
             }
-            break;
+            console.log(`>>> ${manifest?.name ?? ''}`, err);
+        }
     }
-}
-
-function applyPasteProposal(e){
-    const proposal = document.getElementById('proposal');
-    if(!proposal){  return;  }
-
-    const pasteBtn = proposal.querySelector('#pasteProposal');
-    if(!pasteBtn) {  return;  }
-
-    var mousedownEvent = new MouseEvent('mousedown', {
-        'view': window,
-        'bubbles': true,
-        'cancelable': true
-    });
-    pasteBtn.dispatchEvent(mousedownEvent);
-    cleanAutoProposal();
 }

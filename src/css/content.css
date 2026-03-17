@@ -1,0 +1,27 @@
+input[data-suggestion]::placeholder,
+textarea[data-suggestion]::placeholder {
+    font-weight: bold;
+    color: #0066cc;
+    font-style: italic;
+}
+
+input[data-suggestion]::-webkit-input-placeholder,
+textarea[data-suggestion]::-webkit-input-placeholder {
+    font-weight: bold;
+    color: #0066cc;
+    font-style: italic;
+}
+
+input[data-suggestion]::-moz-placeholder,
+textarea[data-suggestion]::-moz-placeholder {
+    font-weight: bold;
+    color: #0066cc;
+    font-style: italic;
+}
+
+input[data-suggestion]:-ms-input-placeholder,
+textarea[data-suggestion]:-ms-input-placeholder {
+    font-weight: bold;
+    color: #0066cc;
+    font-style: italic;
+}

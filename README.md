@@ -88,15 +88,19 @@ Install the extension from the [Download Links](#download-links) section. Altern
 ## Usage
 
 
-If `Calculate similarities on focus` (see [Options](#options) below) is enabled, then you'll see this action:
+If `Calculate similarities on focus` (see [Options](#options) below) is enabled, the extension will automatically suggest values as you focus on form fields. The suggestion appears in the field's placeholder text with instructions on how to apply it.
 
 ![Auto Calculations](media/autoInAction.gif)
 
-To quickly fill a single field, use the shortcut key combination `Ctrl+Shift+Left Arrow` or `Ctrl+Shift+Right Arrow`.
+**To apply an auto-suggestion:**
+- Press `Enter` or `Tab` to accept the suggested value and fill the field
+- The suggestion only appears when the field is empty and a matching value is found
 
-To fill the entire form at once, press `Ctrl+Shift+Enter`.
+**Keyboard shortcuts:**
+- `Ctrl+Shift+Enter` - Fill the entire form at once
 
-Installing this extension will add a context menu, and you'll be able to use it from there. `Options` are also accessible from the context menu where you must define the values you wish to use by filling out a form. (see [Options](#options))
+**Context menu:**
+Installing this extension adds a context menu accessible by right-clicking on any form field. You can toggle auto-suggestions on/off from the context menu, and access `Options` to define your form field values. (see [Options](#options))
 
 Right-click on a form field and you will see the main context menu.
 

@@ -9,11 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.29.10] - 2026-03-17 - latest
+## [1.29.15] - 2026-03-17 - latest
 
-- Added context menu toggle for auto-suggestions (on/off)
+### Changed
+- **Major UI improvement**: Replaced floating tooltip suggestions with placeholder-based suggestions
+  - Suggestions now appear directly in the field's placeholder text
+  - Apply suggestions by pressing Enter or Tab
+  - No more positioning issues or iframe visibility problems
+  - Cleaner, more native user experience
+
+### Added
+- Context menu toggle for auto-suggestions (on/off)
+- Smart positioning logic for future tooltip features (supports right, left, above, below, and overlay positions)
+- Styled placeholder suggestions (bold, blue, italic) for better visibility
+- Extracted CSS to separate file (src/css/content.css) for better maintainability
+
+### Fixed
 - Fixed settings preservation when toggling auto-suggestions after service worker restart
 - Fixed content script state synchronisation for auto-suggestions toggle
+- Fixed Tab key behaviour for inputs outside form elements
+- Fixed auto-suggestions to only target standard input elements (removed contenteditable and ARIA textbox support)
+- Empty suggestions no longer shown when no matching value exists
+
+### Removed
+- Removed obsolete Ctrl+Shift+Left/Right Arrow keyboard shortcuts
+- Removed floating proposal tooltip implementation
+- Removed dynamic style element creation (now uses static CSS file)
+
+## [1.29.10] - 2026-03-17
+
 - Added export functionality for dataset entries
 - Added import functionality for dataset entries
 - Fixed minor issues in import process

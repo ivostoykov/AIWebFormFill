@@ -984,7 +984,7 @@ function showFieldsMetadata() {
 
 function setAutoSimilarityProposalOn(doc, isAuto = false) {
     if (!doc) { doc = document; }
-    let inputs = Array.from(doc.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"], textarea, [role="textbox"], [contenteditable="true"]'));
+    let inputs = Array.from(doc.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], input[type="tel"], textarea'));
     if (!inputs) { return; }
     for (let i = 0; i < inputs.length; i++) {
         const input = inputs[i];
@@ -1028,83 +1028,6 @@ function cleanAutoProposal(e){
         return;
     }
     if (existingProposal) { existingProposal.remove(); }
-}
-
-function getAutoProposalElement(proposalText){
-    if (!document.body) {
-        return null;
-    }
-
-    const id = 'proposal';
-    if (document.getElementById(id)) { cleanAutoProposal(); }
-    const proposal = document.createElement('div');
-    proposal.id = id;
-    proposal.classList.add('proposal-container');
-
-    const children = [
-        {id:"flashIcon", class:"icon", title: "Show proposal", text: '⚡'},
-        {id:"pasteProposal", class:"proposal-btn", title: "Replace proposal", text: '⇽'},
-        {id:"appendProposal", class: "proposal-btn", title:"Append proposal", text: '⤶'},
-        {id:"ignoreProposal", class: "proposal-btn", title:"Ignore proposal", text: '⨉'},
-        {id:"proposalValue", class: "prop-value", text: proposalText}
-    ];
-    for (let i = 0; i < children.length; i++) {
-        const el = children[i];
-        let child = document.createElement('div');
-        for (const [key, value] of Object.entries(el)) {
-            switch (key) {
-                case 'class':
-                    child.classList.add(value);
-                    break;
-                case 'text':
-                    child.textContent = value ?? '';
-                    break;
-                default:
-                    child[key] = value;
-                    break;
-            }
-        }
-        proposal.appendChild(child);
-    }
-
-    return proposal;
-}
-
-function setAutoProposalPosition(target, proposal){
-    const rect = target.getBoundingClientRect();
-    const proposalMinWidth = 200;
-    const proposalHeight = 30;
-    const spacing = 2;
-
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    const spaceOnRight = viewportWidth - rect.right;
-    const spaceOnLeft = rect.left;
-    const spaceBelow = viewportHeight - rect.bottom;
-    const spaceAbove = rect.top;
-
-    let proposalTop, proposalLeft;
-
-    if (spaceOnRight >= proposalMinWidth) {
-        proposalLeft = window.scrollX + rect.right + spacing;
-        proposalTop = window.scrollY + rect.top;
-    } else if (spaceOnLeft >= proposalMinWidth) {
-        proposalLeft = window.scrollX + rect.left - proposalMinWidth - spacing;
-        proposalTop = window.scrollY + rect.top;
-    } else if (spaceBelow >= proposalHeight) {
-        proposalLeft = window.scrollX + rect.left;
-        proposalTop = window.scrollY + rect.bottom + spacing;
-    } else if (spaceAbove >= proposalHeight) {
-        proposalLeft = window.scrollX + rect.left;
-        proposalTop = window.scrollY + rect.top - proposalHeight - spacing;
-    } else {
-        proposalLeft = window.scrollX + rect.left;
-        proposalTop = window.scrollY + rect.top + (rect.height / 2) - (proposalHeight / 2);
-    }
-
-    proposal.style.top = `${proposalTop}px`;
-    proposal.style.left = `${proposalLeft}px`;
 }
 
 function handleInputFocusForAutoProposal(e) {
@@ -1154,30 +1077,21 @@ function showProposal(el){
     target.placeholder = `${data.closest} (apply with Enter or Tab)`;
 }
 
-function handlePasteAutoProposal(e, target) {
-    const propValue = e.target.parentElement.querySelector('div.prop-value').textContent;
-    if(!target){  return;  }
-
-    const newValue = `${e.target.id === 'pasteProposal' ? '' : target.value} ${propValue}`.trim();
-    target.value = newValue;
-}
-
-function handleIgnoreAutoProposal(e) {
-    e.target.closest('div#proposal').remove();
-}
-
 function applyProposal(e) {
     const target = e.target;
     const suggestion = target.getAttribute('data-suggestion');
 
     if (suggestion && (e.key === 'Enter' || e.key === 'Tab')) {
         if (!target.value || target.value.trim() === '') {
-            e.preventDefault();
             target.value = suggestion;
             restoreOriginalPlaceholder(target);
-            if (e.key === 'Tab') {
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            } else if (e.key === 'Tab') {
                 const form = target.form;
                 if (form) {
+                    e.preventDefault();
                     const elements = Array.from(form.elements);
                     const currentIndex = elements.indexOf(target);
                     const nextElement = elements[currentIndex + 1];
@@ -1192,37 +1106,15 @@ function applyProposal(e) {
 
     if (!e.ctrlKey || !e.shiftKey) { return; }
 
-    switch (e.key) {
-        case 'ArrowLeft':
-        case 'ArrowRight':
-            applyPasteProposal(e);
-            break;
-        case 'Enter':
-            try {
-                if (!chrome.runtime.sendMessage) { throw new Error(`chrome.runtime.sendMessage is ${typeof (chrome?.runtime?.sendMessage)}`); }
-                chrome.runtime.sendMessage({ action: 'fillthisform' });
-            } catch (err) {
-                if (err.message === 'Extension context invalidated.') {
-                    showNotificationRibbon(`${err.message}. Please reload the page.`, 'error');
-                }
-                console.log(`>>> ${manifest?.name ?? ''}`, err);
+    if (e.key === 'Enter') {
+        try {
+            if (!chrome.runtime.sendMessage) { throw new Error(`chrome.runtime.sendMessage is ${typeof (chrome?.runtime?.sendMessage)}`); }
+            chrome.runtime.sendMessage({ action: 'fillthisform' });
+        } catch (err) {
+            if (err.message === 'Extension context invalidated.') {
+                showNotificationRibbon(`${err.message}. Please reload the page.`, 'error');
             }
-            break;
+            console.log(`>>> ${manifest?.name ?? ''}`, err);
+        }
     }
-}
-
-function applyPasteProposal(e){
-    const proposal = document.getElementById('proposal');
-    if(!proposal){  return;  }
-
-    const pasteBtn = proposal.querySelector('#pasteProposal');
-    if(!pasteBtn) {  return;  }
-
-    var mousedownEvent = new MouseEvent('mousedown', {
-        'view': window,
-        'bubbles': true,
-        'cancelable': true
-    });
-    pasteBtn.dispatchEvent(mousedownEvent);
-    cleanAutoProposal();
 }

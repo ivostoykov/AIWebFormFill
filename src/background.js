@@ -226,28 +226,24 @@ async function createContextMenu(tab) {
             id: "fillthisform",
             title: "📝 Fill the form",
             contexts: ["editable"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
 
         chrome.contextMenus.create({
             id: "fillthisfield",
             title: "▭ Fill this field",
             contexts: ["editable"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
 
         chrome.contextMenus.create({
             id: "copyToClipboard",
             title: "📋 Copy value to clipboard",
             contexts: ["editable"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
 
         chrome.contextMenus.create({
             id: "fillAndCopyToClipboard",
             title: "▭📋 Fill and copy to clipboard",
             contexts: ["editable"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
 
         if (!AIHelperSettings?.autoLearn) {
@@ -255,7 +251,6 @@ async function createContextMenu(tab) {
                 id: "fillAndMapField",
                 title: "▭ Map and fill this field",
                 contexts: ["editable"],
-                documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
             });
         }
 
@@ -263,28 +258,24 @@ async function createContextMenu(tab) {
             id: "clearallfields",
             title: "⌦ Clear all fields",
             contexts: ["editable"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
 
         // chrome.contextMenus.create({
         //     id: "replacefieldvalue",
         //     title: "(→) Replace field value",
         //     contexts: ["editable"],
-        //     documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         // });
 
         chrome.contextMenus.create({
             id: "showfieldmetadata",
             title: "</> Show form fields metadata",
             contexts: ["editable"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
 
         chrome.contextMenus.create({
             id: "showSimilarityAgain",
             title: "⅏ Show similarities again",
             contexts: ["editable"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
 
         await addDataAsMenu(tab);
@@ -293,7 +284,6 @@ async function createContextMenu(tab) {
             id: "separator1",
             type: "separator",
             contexts: ["all"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
 
         const autoSuggestStatus = AIHelperSettings.calcOnLoad ? "On" : "Off";
@@ -301,14 +291,12 @@ async function createContextMenu(tab) {
             id: "toggleAutoSuggestions",
             title: `💡 Auto-suggestions: ${autoSuggestStatus}`,
             contexts: ["all"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
 
         chrome.contextMenus.create({
             id: "openOptions",
             title: "⚙️ Options",
             contexts: ["all"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
     } catch (e) {
         console.log('>>>', e);
@@ -874,14 +862,12 @@ async function addDataAsMenu(tab) {
         id: "dataseparator",
         type: "separator",
         contexts: ["editable"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
     chrome.contextMenus.create({
         id: "dataset",
         title: "⇽ Insert data manually",
         contexts: ["editable"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
     const createdMenus = [];
@@ -900,7 +886,6 @@ async function addDataAsMenu(tab) {
             parentId: "dataset",
             title: `☛ ${value}`,
             contexts: ["editable"],
-            documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
         });
         createdMenus.push(menuId);
     }
@@ -936,14 +921,12 @@ async function addModelsMenu(tab) {
         id: "empbeddingsseparator",
         type: "separator",
         contexts: ["editable"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
     safeCreateContextMenu({
         id: "provider",
         title: "↔ Change provider",
         contexts: ["editable"],
-        documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
     });
 
     for (let i = 0; i < empbeddings.length; i++) {
@@ -958,7 +941,6 @@ async function addModelsMenu(tab) {
                     parentId: "provider",
                     title: `${emb.value === apiUrl && activeModel === model.model ? '✓ ' : '  '}${emb.text} - ${model.model}`,
                     contexts: ["editable"],
-                    documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
                 });
             }
         } else {
@@ -967,7 +949,6 @@ async function addModelsMenu(tab) {
                 parentId: "provider",
                 title: `${emb.value === apiUrl ? '✓ ' : '  '}${emb.text}`,
                 contexts: ["editable"],
-                documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*/*"]
             });
         }
     }

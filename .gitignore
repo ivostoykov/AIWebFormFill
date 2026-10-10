@@ -20,3 +20,12 @@ node_modules/
 coverage/
 .vitest-cache/
 .claude/
+.continue/
+# Local project and source memory
+.aimem/
+.aimem-spec/
+.project-map/
+scripts/
+AGENTS.md
+SOURCEMEM.md
+

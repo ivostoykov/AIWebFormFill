@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
-## [1.29.15] - 2026-03-17 - latest
+## [1.29.16] - 2026-10-10 - latest
+
+### Fixed
+- Enabled content scripts and context menus in `about:blank` form iframes
+
+## [1.29.15] - 2026-03-17
 
 ### Changed
 - **Major UI improvement**: Replaced floating tooltip suggestions with placeholder-based suggestions
